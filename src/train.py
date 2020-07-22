@@ -74,8 +74,12 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     save_model = Path(save_model)
     if not save_model.exists():
         save_model.mkdir(parents=True)
+
+    centroids = np.load("./annotation_centroids.npy")
+    centroids = torch.Tensor(centroids).float().to(DEVICE)
+
     for epoch in tqdm(range(start_epoch, start_epoch + epochs)):
-        train(train_loader, model, criterion, optimizer, epoch, iter_size)
+        train(train_loader, model, criterion, optimizer, epoch, iter_size, centroids)
         scheduler.step()
 
         checkpoint_name = 'checkpoint-epoch-{}.pth.tar'.format(epoch)
@@ -88,18 +92,15 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
         }, save_path)
 
 
-def train(train_loader, model, criterion, optimizer, epoch, iter_size):
+def train(train_loader, model, criterion, optimizer, epoch, iter_size, centroids):
     logger.info('Starting training epoch {}'.format(epoch))
-
-    centroids = np.load("./annotation_centroids.npy")
-    centroids = torch.Tensor(centroids).float().cuda()
 
     model.train()
 
     for i, (img_input, annotation_input, _) in enumerate(train_loader):
 
         (batch_size, num_frames, num_channels, H, W) = img_input.shape
-        annotation_input = annotation_input.reshape(-1, 3, H, W).cuda()
+        annotation_input = annotation_input.reshape(-1, 3, H, W).to(DEVICE)
         annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
                                                                       scale_factor=SCALE,
                                                                       mode='bilinear',
@@ -110,7 +111,7 @@ def train(train_loader, model, criterion, optimizer, epoch, iter_size):
         annotation_input = color_to_class(annotation_input_downsample, centroids)
         annotation_input = annotation_input.reshape(batch_size, num_frames, H_d, W_d)
 
-        img_input = img_input.reshape(-1, num_channels, H, W).cuda()
+        img_input = img_input.reshape(-1, num_channels, H, W).to(DEVICE)
 
         features = model(img_input)
         feature_dim = features.shape[1]
@@ -121,7 +122,7 @@ def train(train_loader, model, criterion, optimizer, epoch, iter_size):
         ref_label = annotation_input[:, 0:num_frames - 1, :, :]
         target_label = annotation_input[:, -1, :, :]
 
-        ref_label = torch.zeros(batch_size, num_frames - 1, centroids.shape[0], H_d, W_d).cuda().scatter_(
+        ref_label = torch.zeros(batch_size, num_frames - 1, centroids.shape[0], H_d, W_d).to(DEVICE).scatter_(
             2, ref_label.unsqueeze(2), 1)
 
         loss = criterion(ref, target, ref_label, target_label) / args.iter_size
