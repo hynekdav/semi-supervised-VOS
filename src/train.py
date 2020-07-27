@@ -34,9 +34,8 @@ from src.utils.utils import color_to_class
 @click.option('--bs', type=int, default=16, help='batch size')
 @click.option('--lr', type=float, default=0.02, help='initial learning rate')
 @click.option('--wd', type=float, default=3e-4, help='weight decay')
-@click.option('--iter_size', type=int, default=1, help='iter size')
 @click.option('--cj', help='use color jitter')
-def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, iter_size, cj):
+def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj):
     model = VOSNet(model=model)
     model = DataParallel(model)
     model = model.to(DEVICE)
@@ -79,7 +78,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     centroids = torch.Tensor(centroids).float().to(DEVICE)
 
     for epoch in tqdm(range(start_epoch, start_epoch + epochs)):
-        train(train_loader, model, criterion, optimizer, epoch, iter_size, centroids)
+        train(train_loader, model, criterion, optimizer, epoch, centroids)
         scheduler.step()
 
         checkpoint_name = 'checkpoint-epoch-{}.pth.tar'.format(epoch)
@@ -92,7 +91,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
         }, save_path)
 
 
-def train(train_loader, model, criterion, optimizer, epoch, iter_size, centroids):
+def train(train_loader, model, criterion, optimizer, epoch, centroids):
     logger.info('Starting training epoch {}'.format(epoch))
 
     model.train()
@@ -125,11 +124,10 @@ def train(train_loader, model, criterion, optimizer, epoch, iter_size, centroids
         ref_label = torch.zeros(batch_size, num_frames - 1, centroids.shape[0], H_d, W_d).to(DEVICE).scatter_(
             2, ref_label.unsqueeze(2), 1)
 
-        loss = criterion(ref, target, ref_label, target_label) / args.iter_size
+        loss = criterion(ref, target, ref_label, target_label)
         loss.backward()
 
-        if (i + 1) % iter_size == 0:
-            optimizer.step()
-            optimizer.zero_grad()
+        optimizer.step()
+        optimizer.zero_grad()
 
     logger.info('Finished training epoch {}'.format(epoch))
