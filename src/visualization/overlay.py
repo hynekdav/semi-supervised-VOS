@@ -4,11 +4,14 @@
 
 from __future__ import annotations
 from __future__ import generator_stop
+
+from pathlib import Path
+
 import click
 import ffmpeg
 import numpy as np
 from PIL import Image
-from pathlib import Path
+
 
 def remove_background(path):
     files = Path(path).glob('*.png')
@@ -25,15 +28,20 @@ def remove_background(path):
         new_im = Image.fromarray(data)
         new_im.save(str(file.absolute()) + '.noback.png')
 
+
 def cleanup(path):
     files = Path(path).glob('*.noback.png')
     for file in files:
         file.unlink(missing_ok=True)
 
+
 @click.command(name='overlay')
-@click.option('-p', '--prediction', type=click.Path(file_okay=False, dir_okay=True), required=True, help='Directory containing predictions.')
-@click.option('-s', '--source', type=click.Path(file_okay=False, dir_okay=True), required=True, help='Directory containing video frames.')
-@click.option('-o', '--output', type=click.Path(file_okay=True, dir_okay=False), required=True, help='Path to save the output video.')
+@click.option('-p', '--prediction', type=click.Path(file_okay=False, dir_okay=True), required=True,
+              help='Directory containing predictions.')
+@click.option('-s', '--source', type=click.Path(file_okay=False, dir_okay=True), required=True,
+              help='Directory containing video frames.')
+@click.option('-o', '--output', type=click.Path(file_okay=True, dir_okay=False), required=True,
+              help='Path to save the output video.')
 def overlay_command(prediction, source, output):
     remove_background(prediction)
     prediction_input = ffmpeg.input(prediction + '/*.noback.png', pattern_type='glob', framerate=25, vcodec='png')
