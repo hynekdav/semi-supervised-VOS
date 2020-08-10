@@ -90,11 +90,10 @@ def sample_frames(frame_idx,
 
 def prepare_first_frame(curr_video,
                         save_prediction,
-                        annotation_dir,
+                        annotation,
                         sigma1=8,
                         sigma2=21):
-    annotation_list = sorted(os.listdir(annotation_dir))
-    first_annotation = Image.open(os.path.join(annotation_dir, annotation_list[curr_video], '00000.png'))
+    first_annotation = Image.open(annotation)
     (H, W) = np.asarray(first_annotation).shape
     H_d = int(np.ceil(H / 8))
     W_d = int(np.ceil(W / 8))
@@ -114,7 +113,7 @@ def prepare_first_frame(curr_video,
     if save_prediction is not None:
         if not os.path.exists(save_prediction):
             os.makedirs(save_prediction)
-        save_path = os.path.join(save_prediction, annotation_list[curr_video])
+        save_path = os.path.join(save_prediction, curr_video)
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         first_annotation.save(os.path.join(save_path, '00000.png'))

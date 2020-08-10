@@ -13,6 +13,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from tqdm import tqdm
+from loguru import logger
 
 from src.config import DEVICE
 from src.model.predict import predict, prepare_first_frame
@@ -44,12 +45,12 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
 
     if resume is not None:
         if os.path.isfile(resume):
-            print("=> loading checkpoint '{}'".format(resume))
+            logger.info("=> loading checkpoint '{}'".format(resume))
             checkpoint = torch.load(resume, map_location=DEVICE)
             model.load_state_dict(checkpoint['state_dict'])
-            print("=> loaded checkpoint '{}'".format(resume))
+            logger.info("=> loaded checkpoint '{}'".format(resume))
         else:
-            print("=> no checkpoint found at '{}'".format(resume))
+            logger.info("=> no checkpoint found at '{}'".format(resume))
             exit(-1)
     model.eval()
 
@@ -64,10 +65,11 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
     annotation_dir = Path(data) / 'Annotations/480p'
     annotation_list = sorted(os.listdir(annotation_dir))
 
-    last_video = 0
+    last_video = annotation_list[0]
     frame_idx = 0
     with torch.no_grad():
-        for i, (input, curr_video, img_original) in tqdm(enumerate(inference_loader), total=len(inference_dataset)):
+        for i, (input, curr_video) in tqdm(enumerate(inference_loader), total=len(inference_dataset)):
+            curr_video = curr_video[0]
             if curr_video != last_video:
                 # save prediction
                 pred_visualize = pred_visualize.cpu().numpy()
@@ -78,14 +80,15 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
                                     palette, save, save_name, video_name)
 
                 frame_idx = 0
-                tqdm.write("End of video %d. Processing a new annotation...\n" % (last_video + 1))
+                logger.info("End of video %d. Processing a new annotation...\n" % (last_video + 1))
             if frame_idx == 0:
                 input = input.to(DEVICE)
                 with torch.no_grad():
                     feats_history = model(input)
+                first_annotation = annotation_dir / curr_video / '00000.png'
                 label_history, d, palette, weight_dense, weight_sparse = prepare_first_frame(curr_video,
                                                                                              save,
-                                                                                             annotation_dir,
+                                                                                             first_annotation,
                                                                                              sigma_1,
                                                                                              sigma_2)
                 frame_idx += 1
@@ -132,4 +135,4 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
             video_name = annotation_list[last_video]
             save_prediction(np.asarray(pred_visualize[f - 1], dtype=np.int32),
                             palette, save, save_name, video_name)
-    print('Finished inference.')
+    logger.info('Inference done.')
