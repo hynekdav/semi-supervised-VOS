@@ -2,7 +2,6 @@
 # ! python3
 
 
-
 import os
 import torch
 import numpy as np
@@ -71,8 +70,8 @@ def predict(ref,
 def sample_frames(frame_idx,
                   take_range,
                   num_refs):
-    if True: #frame_idx <= num_refs:
-        sample_idx = list(range(min(frame_idx,14)))
+    if True:  # frame_idx <= num_refs:
+        sample_idx = list(range(min(frame_idx, 14)))
     else:
         dense_num = 4 - 1
         sparse_num = num_refs - dense_num

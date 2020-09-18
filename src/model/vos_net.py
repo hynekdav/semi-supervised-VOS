@@ -2,7 +2,6 @@
 # ! python3
 
 
-
 import torch.nn as nn
 
 from src.model.backbone.resnet import resnet18, resnet50, resnet101
