@@ -15,7 +15,7 @@ import torch.nn as nn
 from tqdm import tqdm
 from loguru import logger
 
-from src.config import DEVICE
+from src.config import Config
 from src.model.predict import predict, prepare_first_frame
 from src.model.vos_net import VOSNet
 from src.utils.datasets import InferenceDataset
@@ -38,15 +38,18 @@ from src.utils.utils import save_prediction, index_to_onehot
               help='smaller sigma in the motion model for dense spatial weight')
 @click.option('--save', '-s', type=click.Path(file_okay=False, dir_okay=True), required=True,
               help='path to save predictions')
-def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save):
+@click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
+def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device):
+    if Config.DEVICE.type != device:
+        Config.DEVICE = torch.device(device)
     model = VOSNet(model=model)
     model = nn.DataParallel(model)
-    model = model.to(DEVICE)
+    model = model.to(Config.DEVICE)
 
     if resume is not None:
         if os.path.isfile(resume):
             logger.info("=> loading checkpoint '{}'".format(resume))
-            checkpoint = torch.load(resume, map_location=DEVICE)
+            checkpoint = torch.load(resume, map_location=Config.DEVICE)
             model.load_state_dict(checkpoint['state_dict'])
             logger.info("=> loaded checkpoint '{}'".format(resume))
         else:
@@ -82,7 +85,7 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
                 frame_idx = 0
                 logger.info("End of video %d. Processing a new annotation...\n" % (last_video + 1))
             if frame_idx == 0:
-                input = input.to(DEVICE)
+                input = input.to(Config.DEVICE)
                 with torch.no_grad():
                     feats_history = model(input)
                 first_annotation = annotation_dir / curr_video / '00000.png'
@@ -95,7 +98,7 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
                 last_video = curr_video
                 continue
             (batch_size, num_channels, H, W) = input.shape
-            input = input.to(DEVICE)
+            input = input.to(Config.DEVICE)
 
             features = model(input)
             (_, feature_dim, H_d, W_d) = features.shape
