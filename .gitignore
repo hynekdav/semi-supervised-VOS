@@ -132,3 +132,7 @@ dmypy.json
 
 # PyCharm
 .idea/
+
+# Videos
+*.mp4
+*.avi

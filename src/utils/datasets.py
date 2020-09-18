@@ -43,11 +43,13 @@ class TrainDataset(datasets.ImageFolder):
         self.img_bytes = []
         self.annotation_bytes = []
 
+        logger.info(f'Loading {len(self.imgs)} train images.')
         for path, _ in tqdm(self.imgs):
             with Path(path).open(mode='rb') as f:
                 self.img_bytes.append(f.read())
         logger.info(f"JPEGImages loaded: {len(self.img_bytes)}.")
 
+        logger.info(f'Loading {len(self.imgs)} train annotations.')
         for path, _ in tqdm(self.annotations):
             with Path(path).open(mode='rb') as f:
                 self.annotation_bytes.append(f.read())
@@ -126,20 +128,19 @@ class InferenceDataset(datasets.ImageFolder):
                                                  transforms.Normalize(
                                                      mean=[0.485, 0.456, 0.406],
                                                      std=[0.229, 0.224, 0.225])])
+        logger.info(f'Loading {len(self.imgs)} inference images.')
         for path, _ in tqdm(self.imgs):
             with Path(path).open(mode='rb') as f:
                 self.img_bytes.append(f.read())
-        logger.info(f"Tracking folder JPEGImages loaded: {len(self.img_bytes)}.")
+        logger.info(f'Loaded {len(self.img_bytes)} inference images.')
+        self.idx_to_class = {v: k for k, v in self.class_to_idx.items()}
 
     def __getitem__(self, index):
         path, video_index = self.imgs[index]
         img = Image.open(BytesIO(self.img_bytes[index]))
         img = img.convert('RGB')
-
-        img_original = np.asarray(img)
-
-        output = self.rgb_normalize(img_original)
-        return output, video_index, img_original
+        normalized = self.rgb_normalize(np.asarray(img))
+        return normalized, self.idx_to_class[video_index]
 
     def __len__(self):
         return len(self.imgs)

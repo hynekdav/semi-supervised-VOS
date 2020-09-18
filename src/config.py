@@ -5,5 +5,6 @@
 
 import torch
 
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-SCALE = 0.125
+class Config(object):
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    SCALE = 0.125

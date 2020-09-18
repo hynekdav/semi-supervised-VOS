@@ -11,7 +11,7 @@ from PIL import Image
 
 from src.utils.utils import index_to_onehot
 
-from src.config import DEVICE
+from src.config import Config
 
 
 def predict(ref,
@@ -83,23 +83,22 @@ def sample_frames(frame_idx,
         for j in range(dense_num):
             sample_idx.append(target_idx - dense_num + j)
 
-    return torch.Tensor(sample_idx).long().to(DEVICE)
+    return torch.Tensor(sample_idx).long().to(Config.DEVICE)
 
 
 def prepare_first_frame(curr_video,
                         save_prediction,
-                        annotation_dir,
+                        annotation,
                         sigma1=8,
                         sigma2=21):
-    annotation_list = sorted(os.listdir(annotation_dir))
-    first_annotation = Image.open(os.path.join(annotation_dir, annotation_list[curr_video], '00000.png'))
+    first_annotation = Image.open(annotation)
     (H, W) = np.asarray(first_annotation).shape
     H_d = int(np.ceil(H / 8))
     W_d = int(np.ceil(W / 8))
     palette = first_annotation.getpalette()
     label = np.asarray(first_annotation)
     d = np.max(label) + 1
-    label = torch.Tensor(label).long().to(DEVICE)  # (1, H, W)
+    label = torch.Tensor(label).long().to(Config.DEVICE)  # (1, H, W)
     label_1hot = index_to_onehot(label.view(-1), d).reshape(1, d, H, W)
     label_1hot = torch.nn.functional.interpolate(label_1hot,
                                                  size=(H_d, W_d),
@@ -112,7 +111,7 @@ def prepare_first_frame(curr_video,
     if save_prediction is not None:
         if not os.path.exists(save_prediction):
             os.makedirs(save_prediction)
-        save_path = os.path.join(save_prediction, annotation_list[curr_video])
+        save_path = os.path.join(save_prediction, curr_video)
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         first_annotation.save(os.path.join(save_path, '00000.png'))
@@ -129,7 +128,7 @@ def get_spatial_weight(shape, sigma):
     """
     (H, W) = shape
 
-    index_matrix = torch.arange(H * W, dtype=torch.long).reshape(H * W, 1).to(DEVICE)
+    index_matrix = torch.arange(H * W, dtype=torch.long).reshape(H * W, 1).to(Config.DEVICE)
     index_matrix = torch.cat((index_matrix / W, index_matrix % W), -1)  # (H*W, 2)
     d = index_matrix - index_matrix.unsqueeze(1)  # (H*W, H*W, 2)
     d = d.float().pow(2).sum(-1)  # (H*W, H*W)

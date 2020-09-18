@@ -11,8 +11,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from tqdm import tqdm
+from loguru import logger
 
-from src.config import DEVICE
+from src.config import Config
 from src.model.predict import predict, prepare_first_frame
 from src.model.vos_net import VOSNet
 from src.utils.datasets import InferenceDataset
@@ -35,19 +36,22 @@ from src.utils.utils import save_prediction, index_to_onehot
               help='smaller sigma in the motion model for dense spatial weight')
 @click.option('--save', '-s', type=click.Path(file_okay=False, dir_okay=True), required=True,
               help='path to save predictions')
-def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save):
+@click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
+def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device):
+    if Config.DEVICE.type != device:
+        Config.DEVICE = torch.device(device)
     model = VOSNet(model=model)
     model = nn.DataParallel(model)
-    model = model.to(DEVICE)
+    model = model.to(Config.DEVICE)
 
     if resume is not None:
         if os.path.isfile(resume):
-            print("=> loading checkpoint '{}'".format(resume))
-            checkpoint = torch.load(resume, map_location=DEVICE)
+            logger.info("=> loading checkpoint '{}'".format(resume))
+            checkpoint = torch.load(resume, map_location=Config.DEVICE)
             model.load_state_dict(checkpoint['state_dict'])
-            print("=> loaded checkpoint '{}'".format(resume))
+            logger.info("=> loaded checkpoint '{}'".format(resume))
         else:
-            print("=> no checkpoint found at '{}'".format(resume))
+            logger.info("=> no checkpoint found at '{}'".format(resume))
             exit(-1)
     model.eval()
 
@@ -62,10 +66,11 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
     annotation_dir = Path(data) / 'Annotations/480p'
     annotation_list = sorted(os.listdir(annotation_dir))
 
-    last_video = 0
+    last_video = annotation_list[0]
     frame_idx = 0
     with torch.no_grad():
-        for i, (input, curr_video, img_original) in tqdm(enumerate(inference_loader), total=len(inference_dataset)):
+        for input, curr_video in tqdm(inference_loader, total=len(inference_dataset)):
+            curr_video = curr_video[0]
             if curr_video != last_video:
                 # save prediction
                 pred_visualize = pred_visualize.cpu().numpy()
@@ -77,21 +82,22 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
                     # torch.cuda.empty_cache()
 
                 frame_idx = 0
-                tqdm.write("End of video %d. Processing a new annotation...\n" % (last_video + 1))
+                logger.info("End of video %d. Processing a new annotation...\n" % (last_video + 1))
             if frame_idx == 0:
-                input = input.to(DEVICE)
+                input = input.to(Config.DEVICE)
                 with torch.no_grad():
                     feats_history = model(input)
+                first_annotation = annotation_dir / curr_video / '00000.png'
                 label_history, d, palette, weight_dense, weight_sparse = prepare_first_frame(curr_video,
                                                                                              save,
-                                                                                             annotation_dir,
+                                                                                             first_annotation,
                                                                                              sigma_1,
                                                                                              sigma_2)
                 frame_idx += 1
                 last_video = curr_video
                 continue
             (batch_size, num_channels, H, W) = input.shape
-            input = input.to(DEVICE)
+            input = input.to(Config.DEVICE)
 
             features = model(input)
             (_, feature_dim, H_d, W_d) = features.shape
@@ -131,4 +137,4 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
             video_name = annotation_list[last_video]
             save_prediction(np.asarray(pred_visualize[f - 1], dtype=np.int32),
                             palette, save, save_name, video_name)
-    print('Finished inference.')
+    logger.info('Inference done.')

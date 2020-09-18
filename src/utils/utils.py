@@ -8,7 +8,7 @@ from pathlib import Path
 import torch
 from PIL import Image
 
-from src.config import DEVICE
+from src.config import Config
 
 
 class AverageMeter(object):
@@ -63,6 +63,6 @@ def index_to_onehot(idx, d):
         - one_hot: (d, H*W)
     """
     n = idx.shape[0]
-    one_hot = torch.zeros(d, n, device=DEVICE).scatter_(0, idx.view(1, -1), 1)
+    one_hot = torch.zeros(d, n, device=Config.DEVICE).scatter_(0, idx.view(1, -1), 1)
 
     return one_hot
