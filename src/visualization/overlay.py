@@ -42,10 +42,16 @@ def cleanup(path):
               help='Directory containing video frames.')
 @click.option('-o', '--output', type=click.Path(file_okay=True, dir_okay=False), required=True,
               help='Path to save the output video.')
-def overlay_command(prediction, source, output):
+@click.option('-f', '--fps', type=click.INT, default=15, required=False,
+              help='Number of frames pers second in the resulting video.')
+@click.option('--bw/--color', default=False, help='Should resulting video be black and white?')
+def overlay_command(prediction, source, output, fps, bw):
     remove_background(prediction)
-    prediction_input = ffmpeg.input(prediction + '/*.noback.png', pattern_type='glob', framerate=25, vcodec='png')
-    source_input = ffmpeg.input(source + '/*.jpg', pattern_type='glob', framerate=25)
+    prediction_input = ffmpeg.input(prediction + '/*.noback.png', pattern_type='glob', framerate=fps, vcodec='png')
+    source_input = ffmpeg.input(source + '/*.jpg', pattern_type='glob', framerate=fps)
+
+    if bw:
+        source_input = source_input.filter_('format', 'gray')
 
     source_input = source_input.overlay(prediction_input)
     pipeline = source_input.output(output)

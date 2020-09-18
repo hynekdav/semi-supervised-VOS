@@ -68,7 +68,7 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
     last_video = annotation_list[0]
     frame_idx = 0
     with torch.no_grad():
-        for i, (input, curr_video) in tqdm(enumerate(inference_loader), total=len(inference_dataset)):
+        for input, curr_video in tqdm(inference_loader, total=len(inference_dataset)):
             curr_video = curr_video[0]
             if curr_video != last_video:
                 # save prediction
