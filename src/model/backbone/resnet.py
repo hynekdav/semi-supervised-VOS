@@ -2,8 +2,6 @@
 # ! python3
 
 
-from __future__ import annotations
-from __future__ import generator_stop
 
 import torch.nn as nn
 import math

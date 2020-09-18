@@ -2,8 +2,6 @@
 # ! python3
 
 
-from __future__ import annotations
-from __future__ import generator_stop
 
 import os
 from pathlib import Path
@@ -76,6 +74,7 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
                     video_name = annotation_list[last_video]
                     save_prediction(np.asarray(pred_visualize[f - 1], dtype=np.int32),
                                     palette, save, save_name, video_name)
+                    # torch.cuda.empty_cache()
 
                 frame_idx = 0
                 tqdm.write("End of video %d. Processing a new annotation...\n" % (last_video + 1))

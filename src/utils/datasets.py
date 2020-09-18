@@ -2,8 +2,6 @@
 # ! python3
 
 
-from __future__ import annotations
-from __future__ import generator_stop
 
 from io import BytesIO
 from pathlib import Path
@@ -33,7 +31,7 @@ class TrainDataset(datasets.ImageFolder):
                                            transform=transform,
                                            target_transform=target_transform)
         # img root and annotation root should have the same class_to_idx
-        self.annotations = make_dataset(annotation_root, self.class_to_idx)
+        self.annotations = make_dataset(annotation_root, self.class_to_idx, extensions=('png', 'jpg', 'jpeg'))
         self.cropping = cropping
         self.frame_num = frame_num
         self.color_jitter = color_jitter
