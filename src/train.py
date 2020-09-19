@@ -74,7 +74,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     centroids = np.load("./annotation_centroids.npy")
     centroids = torch.Tensor(centroids).float().to(Config.DEVICE)
 
-    for epoch in tqdm(range(start_epoch, start_epoch + epochs)):
+    for epoch in tqdm(range(start_epoch, start_epoch + epochs), title='Training.'):
         train(train_loader, model, criterion, optimizer, epoch, centroids)
         scheduler.step()
 
@@ -93,7 +93,7 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids):
 
     model.train()
 
-    for i, (img_input, annotation_input, _) in enumerate(train_loader):
+    for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.'):
         (batch_size, num_frames, num_channels, H, W) = img_input.shape
         annotation_input = annotation_input.reshape(-1, 3, H, W).to(Config.DEVICE)
         annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
