@@ -1,7 +1,6 @@
 # -*- encoding: utf-8 -*-
 # ! python3
-
-
+import math
 from pathlib import Path
 
 import click
@@ -56,6 +55,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
                                                pin_memory=True,
                                                num_workers=8,
                                                drop_last=True)
+    batchches = math.ceil(len(train_dataset) / bs)
 
     start_epoch = 0
     if resume is not None:
@@ -75,7 +75,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     centroids = torch.Tensor(centroids).float().to(Config.DEVICE)
 
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
-        train(train_loader, model, criterion, optimizer, epoch, centroids)
+        train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
         scheduler.step()
 
         checkpoint_name = 'checkpoint-epoch-{}.pth.tar'.format(epoch)
@@ -88,12 +88,13 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
         }, save_path)
 
 
-def train(train_loader, model, criterion, optimizer, epoch, centroids):
+def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
     logger.info('Starting training epoch {}'.format(epoch))
 
     model.train()
 
-    for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.'):
+    for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
+                                                    total=batches):
         (batch_size, num_frames, num_channels, H, W) = img_input.shape
         annotation_input = annotation_input.reshape(-1, 3, H, W).to(Config.DEVICE)
         annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
