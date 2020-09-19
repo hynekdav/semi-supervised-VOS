@@ -55,7 +55,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
                                                pin_memory=True,
                                                num_workers=8,
                                                drop_last=True)
-    batchches = math.ceil(len(train_dataset) / bs)
+    batches = math.ceil(len(train_dataset) / bs)
 
     start_epoch = 0
     if resume is not None:
