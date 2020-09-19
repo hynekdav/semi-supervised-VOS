@@ -70,7 +70,7 @@ def predict(ref,
 def sample_frames(frame_idx,
                   take_range,
                   num_refs):
-    if True:  # frame_idx <= num_refs:
+    if frame_idx <= num_refs:
         sample_idx = list(range(min(frame_idx, 14)))
     else:
         dense_num = 4 - 1
