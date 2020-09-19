@@ -32,6 +32,7 @@ from src.utils.utils import color_to_class
 @click.option('--wd', type=float, default=3e-4, help='weight decay')
 @click.option('--cj', help='use color jitter')
 def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj):
+    logger.info('Training started.')
     model = VOSNet(model=model)
     model = DataParallel(model)
     model = model.to(Config.DEVICE)
@@ -86,10 +87,11 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
             'optimizer': optimizer.state_dict(),
             'scheduler': scheduler.state_dict(),
         }, save_path)
+    logger.info('Training finished.')
 
 
 def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
-    logger.info('Starting training epoch {}'.format(epoch))
+    # logger.info('Starting training epoch {}'.format(epoch))
 
     model.train()
 
@@ -127,4 +129,4 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
         optimizer.step()
         optimizer.zero_grad()
 
-    logger.info('Finished training epoch {}'.format(epoch))
+    # logger.info('Finished training epoch {}'.format(epoch))
