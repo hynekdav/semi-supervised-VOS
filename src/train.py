@@ -74,7 +74,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     centroids = np.load("./annotation_centroids.npy")
     centroids = torch.Tensor(centroids).float().to(Config.DEVICE)
 
-    for epoch in tqdm(range(start_epoch, start_epoch + epochs), title='Training.'):
+    for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
         train(train_loader, model, criterion, optimizer, epoch, centroids)
         scheduler.step()
 
