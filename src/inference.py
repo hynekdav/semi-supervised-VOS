@@ -67,6 +67,7 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
 
     last_video = annotation_list[0]
     frame_idx = 0
+    video_idx = 0
     with torch.no_grad():
         for input, curr_video in tqdm(inference_loader, total=len(inference_dataset)):
             curr_video = curr_video[0]
@@ -75,13 +76,14 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
                 pred_visualize = pred_visualize.cpu().numpy()
                 for f in range(1, frame_idx):
                     save_name = str(f).zfill(5)
-                    video_name = annotation_list[last_video]
+                    video_name = last_video
                     save_prediction(np.asarray(pred_visualize[f - 1], dtype=np.int32),
                                     palette, save, save_name, video_name)
                     # torch.cuda.empty_cache()
 
                 frame_idx = 0
-                logger.info("End of video %d. Processing a new annotation...\n" % (last_video + 1))
+                logger.info("End of video %d. Processing a new annotation...\n" % (video_idx + 1))
+                video_idx += 1
             if frame_idx == 0:
                 input = input.to(Config.DEVICE)
                 with torch.no_grad():
@@ -133,7 +135,7 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
         pred_visualize = pred_visualize.cpu().numpy()
         for f in range(1, frame_idx):
             save_name = str(f).zfill(5)
-            video_name = annotation_list[last_video]
+            video_name = last_video
             save_prediction(np.asarray(pred_visualize[f - 1], dtype=np.int32),
                             palette, save, save_name, video_name)
     logger.info('Inference done.')
