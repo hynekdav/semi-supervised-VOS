@@ -53,11 +53,10 @@ def predict(ref,
     # spatial weight and motion model
     global_similarity = global_similarity.contiguous().view(num_ref, H * W, H * W)
     if frame_idx > 15:
-        continuous_frame = 4
         # interval frames
-        global_similarity[:-continuous_frame] *= weight_sparse
+        global_similarity[:-Config.CONTINUOUS_FRAME] *= weight_sparse
         # continuous frames
-        global_similarity[-continuous_frame:] *= weight_dense
+        global_similarity[-Config.CONTINUOUS_FRAME:] *= weight_dense
     else:
         global_similarity = global_similarity.mul(weight_dense)
     global_similarity = global_similarity.view(-1, H * W)
@@ -71,9 +70,9 @@ def sample_frames(frame_idx,
                   take_range,
                   num_refs):
     if frame_idx <= num_refs:
-        sample_idx = list(range(min(frame_idx, 14)))
+        sample_idx = list(range(frame_idx))
     else:
-        dense_num = 4 - 1
+        dense_num = Config.CONTINUOUS_FRAME - 1
         sparse_num = num_refs - dense_num
         target_idx = frame_idx
         ref_end = target_idx - dense_num - 1
@@ -92,8 +91,8 @@ def prepare_first_frame(curr_video,
                         sigma2=21):
     first_annotation = Image.open(annotation)
     (H, W) = np.asarray(first_annotation).shape
-    H_d = int(np.ceil(H / 8))
-    W_d = int(np.ceil(W / 8))
+    H_d = int(np.ceil(H * Config.SCALE))
+    W_d = int(np.ceil(W * Config.SCALE))
     palette = first_annotation.getpalette()
     label = np.asarray(first_annotation)
     d = np.max(label) + 1
