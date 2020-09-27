@@ -32,8 +32,10 @@ def evaluation_command(ground_truth, computed_results):
 
     ground_truth = list(ground_truth.glob('**/*.png'))
     computed = list(computed.glob('**/*.png'))
-    total = len(ground_truth)
 
+    ground_truth.sort()
+    computed.sort()
+    total = len(ground_truth)
     assert len(ground_truth) == len(computed)
 
     logger.info(f'Staring evaluation on {total} pairs.')
