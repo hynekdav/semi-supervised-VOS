@@ -3,7 +3,7 @@
 
 import math
 
-import cv2
+import skimage
 import numpy as np
 
 
@@ -90,9 +90,9 @@ def f_measure(foreground_mask, gt_mask, void_pixels=None, bound_th=0.008):
     from skimage.morphology import disk
 
     # fg_dil = binary_dilation(fg_boundary, disk(bound_pix))
-    fg_dil = cv2.dilate(fg_boundary.astype(np.uint8), disk(bound_pix).astype(np.uint8))
+    fg_dil = skimage.morphology.dilation(fg_boundary.astype(np.uint8), disk(bound_pix).astype(np.uint8))
     # gt_dil = binary_dilation(gt_boundary, disk(bound_pix))
-    gt_dil = cv2.dilate(gt_boundary.astype(np.uint8), disk(bound_pix).astype(np.uint8))
+    gt_dil = skimage.morphology.dilation(gt_boundary.astype(np.uint8), disk(bound_pix).astype(np.uint8))
 
     # Get the intersection
     gt_match = gt_boundary * fg_dil
