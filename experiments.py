@@ -7,9 +7,12 @@ from __future__ import generator_stop
 
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 import torch
 from PIL import Image
+from skimage.transform import resize
 from torch.nn import DataParallel
 from tqdm import tqdm, trange
 
@@ -18,12 +21,6 @@ from src.model.predict import get_spatial_weight
 from src.model.vos_net import VOSNet
 from src.utils.datasets import InferenceDataset
 from src.utils.utils import index_to_onehot
-
-from scipy.linalg import fractional_matrix_power
-
-from sklearn.preprocessing import binarize
-import seaborn as sns
-import matplotlib.pyplot as plt
 
 
 def load_annotation(path):
@@ -34,8 +31,8 @@ def load_annotation(path):
     d = np.max(label) + 1
     label = torch.tensor(label, dtype=torch.long)
     label_1hot = index_to_onehot(label.view(-1), d).reshape(1, d, H, W)
-    # labels = label_1hot.long().numpy()
-    labels = torch.nn.functional.interpolate(label_1hot, scale_factor=1 / 7.981308411)  # Hack for now Config.SCALE)
+    size = np.round(np.array([H, W]) * Config.SCALE).astype(np.int)
+    labels = torch.nn.functional.interpolate(label_1hot, size=tuple(size.data))
     return labels.to(torch.long), palette
 
 
@@ -50,12 +47,9 @@ def generate_features(save_path, checkpoint_path, data_path):
     features = []
     for img, _ in tqdm(inference_loader):
         features_tensor: torch.Tensor = model(img)
-        # features_tensor = torch.mean(features_tensor, dim=1,
-        #                              keepdim=True)
         features.append(features_tensor.detach().numpy())
     features = np.array(features)
     features = features.squeeze()
-    print(features.shape)
     np.savez(save_path, features=features)
     return features
 
@@ -106,10 +100,11 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
                 c = a.mm(b)
                 c = c.softmax(dim=0) * spatial_weight
                 c = c.view(-1, h * w)
-                row.append(c.numpy())  # torch.cat((row, c.type(torch.float16)), 0)
+                row.append(c.numpy())
             similarity = np.vstack((similarity, np.hstack(row))) if similarity.size != 0 else np.hstack(row)
         np.savez(similarity_save_path, similarity=similarity)
     similarity = torch.tensor(similarity)
+    similarity = similarity.t()
 
     if K != -1:
         for i in range(similarity.shape[0]):
@@ -126,11 +121,9 @@ def eq_3(frames, similarity: torch.Tensor, labels, alpha=0.99):
     labels = labels.reshape(labels.shape[0] * labels.shape[1], -1).to(torch.float)
     all_frames = torch.cat((labels, all_frames), dim=0)
 
-    similarity = similarity.t()
-
     y_old = all_frames
 
-    iter = 30
+    iter = 50
     for _ in tqdm(range(iter), desc='Computing y_new.'):
         y_new = alpha * (similarity.mm(y_old)) + (1 - alpha) * all_frames
         y_old = y_new
@@ -139,8 +132,6 @@ def eq_3(frames, similarity: torch.Tensor, labels, alpha=0.99):
 
 
 def main():
-    # udelat matrix W, ktera bude udavat similaritu mezi jednotlivyma framama
-
     features_save_path = Path('features.npz')
     similarity_save_path = Path('similarity.npz')
     checkpoint_path = Path('/home/hynek/projects/checkpoint.pth.tar')
@@ -151,20 +142,22 @@ def main():
 
     features = get_features(features_save_path, checkpoint_path, data_dir)
     spatial_weight = get_spatial_weight(features.shape[2:], sigma=8)
-    similarity_matrix = get_similarity_matrix(similarity_save_path, features, spatial_weight, K=10)
-    C = features.shape[0] * features.shape[2] * features.shape[3]
+    similarity_matrix = get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
 
-    frames = np.zeros((features.shape[0], labels.shape[1], labels.shape[2]))
+    frames = np.zeros(shape=(4, 480, 854))
     for i, curr_labels in enumerate(labels[0]):
         predicted_frames = eq_3(features.shape[0], similarity_matrix,
-                                curr_labels)  # equation_3(features, np.array(curr_labels)) * (i + 1)
+                                curr_labels)
         predicted_frames = predicted_frames.reshape(4, 60, 107)
-        for frame in predicted_frames:
+        for j, frame in enumerate(predicted_frames):
+            frame = resize(frame.numpy(), (480, 854))
+            if i > 0:
+                mean = frame.mean()
+                frame[frame < mean] = 0
+                frame[frame >= mean] = i
+                frames[j] += frame
+            plt.figure()
             sns.heatmap(frame)
-            plt.show()
-            break
-        # frames += predicted_frames
-    frames -= 1
 
     save_predictions(predictions_save_path, frames, palette)
 
