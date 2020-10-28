@@ -33,7 +33,7 @@ def load_annotation(path):
     label_1hot = index_to_onehot(label.view(-1), d).reshape(1, d, H, W)
     size = np.round(np.array([H, W]) * Config.SCALE).astype(np.int)
     labels = torch.nn.functional.interpolate(label_1hot, size=tuple(size.data))
-    return labels.to(torch.long), palette
+    return labels.to(torch.long).numpy(), palette
 
 
 def generate_features(save_path, checkpoint_path, data_path):
@@ -65,25 +65,33 @@ def save_predictions(save_path: Path, predictions: np.array, palette, show=True)
         image.save(save_path / f'{str(i).rjust(5, "0")}.png')
 
 
-def to_sparse(x):
-    """ converts dense tensor x to sparse format """
-    x_typename = torch.typename(x).split('.')[-1]
-    sparse_tensortype = getattr(torch.sparse, x_typename)
-
-    indices = torch.nonzero(x)
-    if len(indices.shape) == 0:  # if all elements are zeros
-        return sparse_tensortype(*x.shape)
-    indices = indices.t()
-    values = x[tuple(indices[i] for i in range(indices.shape[0]))]
-    return sparse_tensortype(indices, values, x.size())
-
-
 def get_features(features_save_path, checkpoint_path, data_dir):
     if not features_save_path.exists():
         features = generate_features(features_save_path, checkpoint_path, data_dir)
     else:
         features = np.load(features_save_path)['features']
-    return torch.tensor(features)
+    return features
+
+
+def softmax(X, axis=None):
+    # make X at least 2d
+    y = np.atleast_2d(X)
+
+    # find axis
+    if axis is None:
+        axis = next(j[0] for j in enumerate(y.shape) if j[1] > 1)
+
+    # subtract the max for numerical stability
+    y = y - np.expand_dims(np.max(y, axis=axis), axis)
+    # exponentiate y
+    y = np.exp(y)
+    # take the sum along the specified axis
+    ax_sum = np.expand_dims(np.sum(y, axis=axis), axis)
+    # finally: divide elementwise
+    p = y / ax_sum
+    # flatten if X was 1D
+    if len(X.shape) == 1: p = p.flatten()
+    return p
 
 
 def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150):
@@ -95,37 +103,36 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
         for i in trange(features.shape[0]):
             row = []
             for j in range(features.shape[0]):
-                a = features[i].permute(1, 2, 0).reshape(-1, dims)
-                b = features[j].reshape(dims, -1)
-                c = a.mm(b)
-                c = c.softmax(dim=0) * spatial_weight
-                c = c.view(-1, h * w)
-                row.append(c.numpy())
+                a = np.transpose(features[i], axes=[1, 2, 0]).reshape((w * h, dims))
+                b = features[j].reshape((dims, w * h))
+                c = a @ b
+                c = softmax(c, axis=0) * spatial_weight
+                row.append(c)
             similarity = np.vstack((similarity, np.hstack(row))) if similarity.size != 0 else np.hstack(row)
+        similarity = similarity.T
         np.savez(similarity_save_path, similarity=similarity)
-    similarity = torch.tensor(similarity)
-    similarity = similarity.t()
 
     if K != -1:
-        for i in range(similarity.shape[0]):
-            topk = torch.topk(similarity[i], k=K, sorted=False)
-            similarity[i] = torch.zeros(size=(1, similarity.shape[1]))
-            similarity[i] = similarity[i].scatter(0, topk.indices, topk.values)
+        for i in trange(similarity.shape[0]):
+            indices = np.argpartition(similarity[i], -K)[-K:]
+            values = similarity[i][indices]
+            similarity[i] = 0
+            similarity[i][indices] = values
 
     return similarity
 
 
-def eq_3(frames, similarity: torch.Tensor, labels, alpha=0.99):
+def eq_3(frames, similarity: np.ndarray, labels, alpha=0.99):
     frames -= 1
-    all_frames = torch.zeros(size=(frames * labels.shape[0] * labels.shape[1], 1), dtype=torch.float)
-    labels = labels.reshape(labels.shape[0] * labels.shape[1], -1).to(torch.float)
-    all_frames = torch.cat((labels, all_frames), dim=0)
+    all_frames = np.zeros((frames * labels.shape[0] * labels.shape[1], 1), dtype=np.float32)
+    labels = labels.reshape(labels.shape[0] * labels.shape[1], -1).astype(np.float32)
+    all_frames = np.vstack((labels, all_frames))
 
     y_old = all_frames
 
-    iter = 50
+    iter = 10
     for _ in tqdm(range(iter), desc='Computing y_new.'):
-        y_new = alpha * (similarity.mm(y_old)) + (1 - alpha) * all_frames
+        y_new = alpha * (similarity @ y_old) + (1 - alpha) * all_frames
         y_old = y_new
 
     return y_old
@@ -141,22 +148,21 @@ def main():
     labels, palette = load_annotation(annotation_path)
 
     features = get_features(features_save_path, checkpoint_path, data_dir)
-    spatial_weight = get_spatial_weight(features.shape[2:], sigma=8)
+    spatial_weight = get_spatial_weight(features.shape[2:], sigma=8).numpy()
     similarity_matrix = get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
 
-    frames = np.zeros(shape=(4, 3, 480, 854))
+    frames = np.zeros(shape=(features.shape[0], labels.shape[1], 480, 854))
     for i, curr_labels in enumerate(labels[0]):
         predicted_frames = eq_3(features.shape[0], similarity_matrix,
                                 curr_labels)
-        predicted_frames = predicted_frames.reshape(4, 60, 107)
+        predicted_frames = predicted_frames.reshape((features.shape[0], labels.shape[2], labels.shape[3]))
         for j, frame in enumerate(predicted_frames):
-            frame = resize(frame.numpy(), (480, 854))
+            frame = resize(frame, (480, 854))
             frames[j][i] = frame
             plt.figure()
             sns.heatmap(frame)
 
     frames = np.argmax(frames, axis=1)
-
     save_predictions(predictions_save_path, frames, palette)
 
 
