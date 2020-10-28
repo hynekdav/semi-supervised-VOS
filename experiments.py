@@ -144,20 +144,18 @@ def main():
     spatial_weight = get_spatial_weight(features.shape[2:], sigma=8)
     similarity_matrix = get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
 
-    frames = np.zeros(shape=(4, 480, 854))
+    frames = np.zeros(shape=(4, 3, 480, 854))
     for i, curr_labels in enumerate(labels[0]):
         predicted_frames = eq_3(features.shape[0], similarity_matrix,
                                 curr_labels)
         predicted_frames = predicted_frames.reshape(4, 60, 107)
         for j, frame in enumerate(predicted_frames):
             frame = resize(frame.numpy(), (480, 854))
-            if i > 0:
-                mean = frame.mean()
-                frame[frame < mean] = 0
-                frame[frame >= mean] = i
-                frames[j] += frame
+            frames[j][i] = frame
             plt.figure()
             sns.heatmap(frame)
+
+    frames = np.argmax(frames, axis=1)
 
     save_predictions(predictions_save_path, frames, palette)
 
