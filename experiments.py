@@ -15,6 +15,7 @@ from PIL import Image
 from skimage.transform import resize
 from torch.nn import DataParallel
 from tqdm import tqdm, trange
+from scipy import sparse
 
 from src.config import Config
 from src.model.predict import get_spatial_weight
@@ -96,7 +97,7 @@ def softmax(X, axis=None):
 
 def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150):
     if similarity_save_path.exists():
-        similarity = np.load(similarity_save_path)['similarity']
+        similarity = sparse.load_npz(similarity_save_path).toarray()
     else:
         (N, dims, w, h) = features.shape
         similarity = np.array(())
@@ -110,7 +111,11 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
                 row.append(c)
             similarity = np.vstack((similarity, np.hstack(row))) if similarity.size != 0 else np.hstack(row)
         similarity = similarity.T
-        np.savez(similarity_save_path, similarity=similarity)
+        similarity = similarity.astype(np.float16)
+
+        to_save = sparse.csr_matrix(similarity)
+        sparse.save_npz(similarity_save_path, to_save)
+        del to_save
 
     if K != -1:
         for i in trange(similarity.shape[0]):
