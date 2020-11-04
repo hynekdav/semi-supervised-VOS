@@ -16,6 +16,7 @@ from skimage.transform import resize
 from torch.nn import DataParallel
 from tqdm import tqdm, trange
 from scipy import sparse
+from loguru import logger
 
 from src.config import Config
 from src.model.predict import get_spatial_weight
@@ -55,7 +56,7 @@ def generate_features(save_path, checkpoint_path, data_path):
     return features
 
 
-def save_predictions(save_path: Path, predictions: np.array, palette, show=True):
+def save_predictions(save_path: Path, predictions: np.array, palette, show=False):
     save_path.mkdir(exist_ok=True, parents=True)
     for i, frame in enumerate(predictions):
         if show:
@@ -97,6 +98,7 @@ def softmax(X, axis=None):
 
 def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150):
     if similarity_save_path.exists():
+        logger.info('Loading similarity matrix.')
         similarity = sparse.load_npz(similarity_save_path).toarray()
     else:
         (N, dims, w, h) = features.shape
@@ -114,20 +116,22 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
         similarity = similarity.astype(np.float16)
 
         to_save = sparse.csr_matrix(similarity)
-        sparse.save_npz(similarity_save_path, to_save)
+        sparse.save_npz(similarity_save_path, to_save, compressed=True)
         del to_save
 
     if K != -1:
+        logger.info(f'Selecting top {K=} from each row.')
         for i in trange(similarity.shape[0]):
             indices = np.argpartition(similarity[i], -K)[-K:]
             values = similarity[i][indices]
             similarity[i] = 0
             similarity[i][indices] = values
 
-    return similarity
+    logger.info('Returning sparse matrix.')
+    return sparse.csr_matrix(similarity)
 
 
-def eq_3(frames, similarity: np.ndarray, labels, alpha=0.99):
+def eq_3(frames, similarity: sparse.csr_matrix, labels, alpha=0.99):
     frames -= 1
     all_frames = np.zeros((frames * labels.shape[0] * labels.shape[1], 1), dtype=np.float32)
     labels = labels.reshape(labels.shape[0] * labels.shape[1], -1).astype(np.float32)
@@ -143,19 +147,25 @@ def eq_3(frames, similarity: np.ndarray, labels, alpha=0.99):
     return y_old
 
 
-def main():
+def main(K):
     features_save_path = Path('features.npz')
     similarity_save_path = Path('similarity.npz')
     checkpoint_path = Path('/home/hynek/projects/checkpoint.pth.tar')
     data_dir = Path('/home/hynek/skola/FEL/5. semestr/test/480p/')
     annotation_path = Path('/home/hynek/skola/FEL/5. semestr/test/annot/00000.png')
-    predictions_save_path = Path('/home/hynek/VOS_saves/')
+    predictions_save_path = Path(f'/home/hynek/VOS_saves/{K=}')
+    predictions_save_path.mkdir(parents=True, exist_ok=True)
     labels, palette = load_annotation(annotation_path)
+    show = False
 
+    logger.info('Loading features.')
     features = get_features(features_save_path, checkpoint_path, data_dir)
+    logger.info('Getting spatial weight.')
     spatial_weight = get_spatial_weight(features.shape[2:], sigma=8).numpy()
-    similarity_matrix = get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
+    logger.info('Getting similarity matrix.')
+    similarity_matrix = get_similarity_matrix(similarity_save_path, features, spatial_weight, K=K)
 
+    logger.info('Processing predictions.')
     frames = np.zeros(shape=(features.shape[0], labels.shape[1], 480, 854))
     for i, curr_labels in enumerate(labels[0]):
         predicted_frames = eq_3(features.shape[0], similarity_matrix,
@@ -164,12 +174,14 @@ def main():
         for j, frame in enumerate(predicted_frames):
             frame = resize(frame, (480, 854))
             frames[j][i] = frame
-            plt.figure()
-            sns.heatmap(frame)
-
+            if show:
+                plt.figure()
+                sns.heatmap(frame)
     frames = np.argmax(frames, axis=1)
-    save_predictions(predictions_save_path, frames, palette)
+
+    logger.info('Saving predictions.')
+    save_predictions(predictions_save_path, frames, palette, show=show)
 
 
 if __name__ == '__main__':
-    main()
+    main(-1)
