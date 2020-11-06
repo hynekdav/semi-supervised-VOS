@@ -9,6 +9,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy
 import seaborn as sns
 import torch
 from PIL import Image
@@ -102,18 +103,17 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
         similarity = sparse.load_npz(similarity_save_path).toarray()
     else:
         (N, dims, w, h) = features.shape
-        similarity = np.array(())
+        mat_size = N * w * h
+        similarity = np.zeros((mat_size, mat_size), dtype=np.float16)
         for i in trange(features.shape[0]):
-            row = []
             for j in range(features.shape[0]):
                 a = np.transpose(features[i], axes=[1, 2, 0]).reshape((w * h, dims))
                 b = features[j].reshape((dims, w * h))
                 c = a @ b
-                c = softmax(c, axis=0) * spatial_weight
-                row.append(c)
-            similarity = np.vstack((similarity, np.hstack(row))) if similarity.size != 0 else np.hstack(row)
-        similarity = similarity.T
-        similarity = similarity.astype(np.float16)
+                c = (softmax(c, axis=0) * spatial_weight).T
+                shape = c.shape
+                similarity[j * shape[1]:j * shape[1] + shape[1], i * shape[0]:i * shape[0] + shape[0]] = c.astype(
+                    np.float16)
 
         to_save = sparse.csr_matrix(similarity)
         sparse.save_npz(similarity_save_path, to_save, compressed=True)
