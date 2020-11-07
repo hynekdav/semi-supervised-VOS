@@ -100,11 +100,11 @@ def softmax(X, axis=None):
 def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150):
     if similarity_save_path.exists():
         logger.info('Loading similarity matrix.')
-        similarity = sparse.load_npz(similarity_save_path).toarray()
+        similarity = sparse.load_npz(similarity_save_path).tolil()
     else:
         (N, dims, w, h) = features.shape
         mat_size = N * w * h
-        similarity = np.zeros((mat_size, mat_size), dtype=np.float16)
+        similarity = sparse.lil_matrix((mat_size, mat_size))  # np.zeros((mat_size, mat_size), dtype=np.float16)
         for i in trange(features.shape[0]):
             for j in range(features.shape[0]):
                 a = np.transpose(features[i], axes=[1, 2, 0]).reshape((w * h, dims))
@@ -115,20 +115,20 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
                 similarity[j * shape[1]:j * shape[1] + shape[1], i * shape[0]:i * shape[0] + shape[0]] = c.astype(
                     np.float16)
 
-        to_save = sparse.csr_matrix(similarity)
-        sparse.save_npz(similarity_save_path, to_save, compressed=True)
-        del to_save
+        sparse.save_npz(similarity_save_path, similarity.tocsr(), compressed=True)
 
     if K != -1:
         logger.info(f'Selecting top {K=} from each row.')
         for i in trange(similarity.shape[0]):
-            indices = np.argpartition(similarity[i], -K)[-K:]
-            values = similarity[i][indices]
-            similarity[i] = 0
-            similarity[i][indices] = values
+            row = similarity[i].toarray().squeeze()
+            indices = np.argpartition(row, -K)[-K:]
+            values = row[indices]
+            row[:] = 0
+            row[indices] = values
+            similarity[i] = row
 
     logger.info('Returning sparse matrix.')
-    return sparse.csr_matrix(similarity)
+    return similarity.tocsr()
 
 
 def eq_3(frames, similarity: sparse.csr_matrix, labels, alpha=0.99):
@@ -184,4 +184,4 @@ def main(K):
 
 
 if __name__ == '__main__':
-    main(-1)
+    main(2000)
