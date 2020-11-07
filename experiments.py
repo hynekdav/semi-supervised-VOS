@@ -104,7 +104,7 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
     else:
         (N, dims, w, h) = features.shape
         mat_size = N * w * h
-        similarity = sparse.lil_matrix((mat_size, mat_size))  # np.zeros((mat_size, mat_size), dtype=np.float16)
+        similarity = sparse.lil_matrix((mat_size, mat_size), dtype=np.float16)
         for i in trange(features.shape[0]):
             for j in range(features.shape[0]):
                 a = np.transpose(features[i], axes=[1, 2, 0]).reshape((w * h, dims))
