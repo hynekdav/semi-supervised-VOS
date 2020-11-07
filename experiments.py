@@ -57,15 +57,26 @@ def generate_features(save_path, checkpoint_path, data_path):
     return features
 
 
-def save_predictions(save_path: Path, predictions: np.array, palette, show=False):
+def save_predictions(save_path: Path, predictions: np.array, palette, gif=True, show=False):
     save_path.mkdir(exist_ok=True, parents=True)
-    for i, frame in enumerate(predictions):
-        if show:
-            sns.heatmap(frame)
-            plt.show()
-        image = Image.fromarray(np.uint8(frame), mode='P')
-        image.putpalette(palette)
-        image.save(save_path / f'{str(i).rjust(5, "0")}.png')
+    if gif:
+        def create_img(prediction):
+            im = Image.fromarray(np.uint8(prediction), mode='P')
+            im.putpalette(palette)
+            return im
+
+        image = create_img(predictions[0])
+        image.save(save_path / f'video.gif', save_all=True,
+                   append_images=list(map(lambda p: create_img(p), predictions[1:])), loop=0,
+                   duration=250)
+    else:
+        for i, frame in enumerate(predictions):
+            if show:
+                sns.heatmap(frame)
+                plt.show()
+            image = Image.fromarray(np.uint8(frame), mode='P')
+            image.putpalette(palette)
+            image.save(save_path / f'{str(i).rjust(5, "0")}.png')
 
 
 def get_features(features_save_path, checkpoint_path, data_dir):
@@ -184,4 +195,4 @@ def main(K):
 
 
 if __name__ == '__main__':
-    main(2000)
+    main(-1)
