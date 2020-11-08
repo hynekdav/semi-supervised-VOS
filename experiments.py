@@ -68,7 +68,7 @@ def save_predictions(save_path: Path, predictions: np.array, palette, gif=True, 
         image = create_img(predictions[0])
         image.save(save_path / f'video.gif', save_all=True,
                    append_images=list(map(lambda p: create_img(p), predictions[1:])), loop=0,
-                   duration=250)
+                   duration=125)
     else:
         for i, frame in enumerate(predictions):
             if show:
@@ -115,7 +115,7 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
     else:
         (N, dims, w, h) = features.shape
         mat_size = N * w * h
-        similarity = sparse.lil_matrix((mat_size, mat_size), dtype=np.float16)
+        similarity = sparse.lil_matrix((mat_size, mat_size))
         for i in trange(features.shape[0]):
             for j in range(features.shape[0]):
                 a = np.transpose(features[i], axes=[1, 2, 0]).reshape((w * h, dims))
@@ -123,8 +123,7 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
                 c = a @ b
                 c = (softmax(c, axis=0) * spatial_weight).T
                 shape = c.shape
-                similarity[j * shape[1]:j * shape[1] + shape[1], i * shape[0]:i * shape[0] + shape[0]] = c.astype(
-                    np.float16)
+                similarity[j * shape[1]:j * shape[1] + shape[1], i * shape[0]:i * shape[0] + shape[0]] = c.astype(np.float16)
 
         sparse.save_npz(similarity_save_path, similarity.tocsr(), compressed=True)
 
@@ -195,4 +194,6 @@ def main(K):
 
 
 if __name__ == '__main__':
-    main(-1)
+    K = [1, 5, 10, 15, 25, 50, 150, 250, 500, 1000, 1500, 2000, -1]
+    for k in K:
+        main(k)
