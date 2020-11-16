@@ -5,6 +5,8 @@
 from __future__ import annotations
 from __future__ import generator_stop
 
+import time
+from datetime import timedelta
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -123,7 +125,8 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
                 c = a @ b
                 c = (softmax(c, axis=0) * spatial_weight).T
                 shape = c.shape
-                similarity[j * shape[1]:j * shape[1] + shape[1], i * shape[0]:i * shape[0] + shape[0]] = c.astype(np.float16)
+                similarity[j * shape[1]:j * shape[1] + shape[1], i * shape[0]:i * shape[0] + shape[0]] = c.astype(
+                    np.float16)
 
         sparse.save_npz(similarity_save_path, similarity.tocsr(), compressed=True)
 
@@ -176,6 +179,7 @@ def main(K):
     similarity_matrix = get_similarity_matrix(similarity_save_path, features, spatial_weight, K=K)
 
     logger.info('Processing predictions.')
+    start = time.time()
     frames = np.zeros(shape=(features.shape[0], labels.shape[1], 480, 854))
     for i, curr_labels in enumerate(labels[0]):
         predicted_frames = eq_3(features.shape[0], similarity_matrix,
@@ -188,12 +192,15 @@ def main(K):
                 plt.figure()
                 sns.heatmap(frame)
     frames = np.argmax(frames, axis=1)
+    end = time.time()
+    logger.info(f'Processing took {end - start}s.')
 
     logger.info('Saving predictions.')
     save_predictions(predictions_save_path, frames, palette, show=show)
 
 
 if __name__ == '__main__':
-    K = [1, 5, 10, 15, 25, 50, 150, 250, 500, 1000, 1500, 2000, -1]
-    for k in K:
-        main(k)
+    # K = [1, 5, 10, 15, 25, 50, 150, 250, 500, 1000, 1500, 2000, -1]
+    # for k in K:
+    #     main(k)
+    main(1500)
