@@ -65,11 +65,10 @@ class FocalLoss(nn.Module):
         self.gamma = gamma
         self.reduction = reduction
         self.focal_loss = torch.hub.load(
-            repo_or_dir='adeelh/pytorch-multi-class-focal-loss',
+            'adeelh/pytorch-multi-class-focal-loss',
             model='FocalLoss',
             gamma=self.gamma,
             reduction=self.reduction,
-            force_reload=False
         )
 
     def forward(self, ref, target, ref_label, target_label):
