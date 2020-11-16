@@ -60,15 +60,13 @@ class CrossEntropy(nn.Module):
 
 
 class FocalLoss(nn.Module):
-    def __init__(self, gamma=0.5, alpha=(0.75, 0.25), reduction='mean'):
+    def __init__(self, gamma=0.5, reduction='mean'):
         super(FocalLoss, self).__init__()
         self.gamma = gamma
-        self.alpha = alpha
         self.reduction = reduction
         self.focal_loss = torch.hub.load(
             repo_or_dir='adeelh/pytorch-multi-class-focal-loss',
             model='FocalLoss',
-            alpha=self.alpha,
             gamma=self.gamma,
             reduction=self.reduction,
             force_reload=False
@@ -86,6 +84,7 @@ class FocalLoss(nn.Module):
         """
         global_similarity = batch_get_similarity_matrix(ref, target)
         global_similarity = global_similarity.softmax(dim=1)
+        prediction = batch_global_predict(global_similarity, ref_label)
 
-        loss = self.focal_loss(global_similarity, target_label)
+        loss = self.focal_loss(prediction, target_label)
         return loss
