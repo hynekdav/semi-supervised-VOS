@@ -4,6 +4,7 @@
 
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 
 def batch_get_similarity_matrix(ref, target):
@@ -64,12 +65,6 @@ class FocalLoss(nn.Module):
         super(FocalLoss, self).__init__()
         self.gamma = gamma
         self.reduction = reduction
-        self.focal_loss = torch.hub.load(
-            'adeelh/pytorch-multi-class-focal-loss',
-            model='FocalLoss',
-            gamma=self.gamma,
-            reduction=self.reduction,
-        )
 
     def forward(self, ref, target, ref_label, target_label):
         """
@@ -85,5 +80,30 @@ class FocalLoss(nn.Module):
         global_similarity = global_similarity.softmax(dim=1)
         prediction = batch_global_predict(global_similarity, ref_label)
 
-        loss = self.focal_loss(prediction, target_label)
+        if prediction.ndim > 2:
+            # (N, C, d1, d2, ..., dK) --> (N * d1 * ... * dK, C)
+            c = prediction.shape[1]
+            prediction = prediction.permute(0, *range(2, prediction.ndim), 1).reshape(-1, c)
+            # (N, d1, d2, ..., dK) --> (N * d1 * ... * dK,)
+            target_label = target_label.reshape(-1)
+
+        log_p = F.log_softmax(prediction, dim=-1)
+        ce = self.nll_loss(log_p, target_label)
+
+        # get true class column from each row
+        all_rows = torch.arange(len(prediction))
+        log_pt = log_p[all_rows, target_label]
+
+        # compute focal term: (1 - pt)^gamma
+        pt = log_pt.exp()
+        focal_term = (1 - pt) ** self.gamma
+
+        # the full loss: -alpha * ((1 - pt)^gamma) * log(pt)
+        loss = focal_term * ce
+
+        if self.reduction == 'mean':
+            loss = loss.mean()
+        elif self.reduction == 'sum':
+            loss = loss.sum()
+
         return loss
