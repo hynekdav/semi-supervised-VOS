@@ -65,6 +65,7 @@ class FocalLoss(nn.Module):
         super(FocalLoss, self).__init__()
         self.gamma = gamma
         self.reduction = reduction
+        self.nll_loss = nn.NLLLoss()
 
     def forward(self, ref, target, ref_label, target_label):
         """

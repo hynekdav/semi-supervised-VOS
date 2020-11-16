@@ -31,13 +31,18 @@ from src.utils.utils import color_to_class
 @click.option('--lr', type=float, default=0.02, help='initial learning rate')
 @click.option('--wd', type=float, default=3e-4, help='weight decay')
 @click.option('--cj', help='use color jitter')
-def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj):
+@click.option('--loss', type=click.Option(['ce', 'fl']), default='ce',
+              help='Loss function to use (CrossEntropy or FocalLoss)')
+def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss):
     logger.info('Training started.')
     model = VOSNet(model=model)
     model = DataParallel(model)
     model = model.to(Config.DEVICE)
 
-    criterion = FocalLoss().to(Config.DEVICE) # CrossEntropy(temperature=temperature).to(Config.DEVICE)
+    if loss == 'ce':
+        criterion = CrossEntropy(temperature=temperature).to(Config.DEVICE)
+    else:
+        criterion = FocalLoss().to(Config.DEVICE)
 
     optimizer = torch.optim.SGD(model.parameters(),
                                 lr=lr,
