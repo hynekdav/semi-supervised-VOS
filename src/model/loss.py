@@ -57,3 +57,35 @@ class CrossEntropy(nn.Module):
         loss = self.nllloss(prediction, target_label)
 
         return loss
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, gamma=0.5, alpha=(0.75, 0.25), reduction='mean'):
+        super(FocalLoss, self).__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+        self.reduction = reduction
+        self.focal_loss = torch.hub.load(
+            repo_or_dir='adeelh/pytorch-multi-class-focal-loss',
+            model='FocalLoss',
+            alpha=self.alpha,
+            gamma=self.gamma,
+            reduction=self.reduction,
+            force_reload=False
+        )
+
+    def forward(self, ref, target, ref_label, target_label):
+        """
+        let Nt = num of target pixels, Nr = num of ref pixels
+        :param ref: (batchSize, num_ref, feature_dim, H, W)
+        :param target: (batchSize, feature_dim, H, W)
+        :param ref_label: label for reference pixels
+                         (batchSize, num_ref, d, H, W)
+        :param target_label: label for target pixels (ground truth)
+                            (batchSize, H, W)
+        """
+        global_similarity = batch_get_similarity_matrix(ref, target)
+        global_similarity = global_similarity.softmax(dim=1)
+
+        loss = self.focal_loss(global_similarity, target_label)
+        return loss

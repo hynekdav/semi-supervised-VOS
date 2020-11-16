@@ -11,7 +11,7 @@ from torch.nn import DataParallel
 from tqdm import tqdm
 
 from src.config import Config
-from src.model.loss import CrossEntropy
+from src.model.loss import CrossEntropy, FocalLoss
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.utils import color_to_class
@@ -37,7 +37,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     model = DataParallel(model)
     model = model.to(Config.DEVICE)
 
-    criterion = CrossEntropy(temperature=temperature).to(Config.DEVICE)
+    criterion = FocalLoss().to(Config.DEVICE) # CrossEntropy(temperature=temperature).to(Config.DEVICE)
 
     optimizer = torch.optim.SGD(model.parameters(),
                                 lr=lr,
