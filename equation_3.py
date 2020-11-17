@@ -27,6 +27,8 @@ from src.model.vos_net import VOSNet
 from src.utils.datasets import InferenceDataset
 from src.utils.utils import index_to_onehot
 
+import click
+
 
 def load_annotation(path):
     annotation = Image.open(path)
@@ -160,23 +162,35 @@ def eq_3(frames, similarity: sparse.csr_matrix, labels, alpha=0.99):
     return y_old
 
 
-def main(K):
+@click.command(name='Eq_3')
+@click.option('-K', 'K_value', type=click.INT, required=True, help='How many values of each row to take.')
+@click.option('-d', '--data', type=click.Path(exists=True, file_okay=False, dir_okay=True), required=True,
+              help='Images folder.')
+@click.option('-c', '--checkpoint', type=click.Path(exists=True, file_okay=True, dir_okay=False), required=True,
+              help='Checkpoint path.')
+@click.option('-s', '--save', type=click.Path(file_okay=False, dir_okay=True), required=True, help='Save path.')
+@click.option('--show/--no-show', default=False, help='Show/no-show results.')
+@click.option('--gif/--no-gif', default=False, help='Save gif/pngs.')
+def equation_3(K_value, data, checkpoint, save, show, gif):
+    K_value = int(K_value)
+    data = Path(data)
+    data_dir = data / '480p/'
+    annotation_path = data / 'annot/00000.png'
+    checkpoint_path = Path(checkpoint)
+    predictions_save_path = Path(save) / f'K={K_value}'
+    predictions_save_path.mkdir(parents=True, exist_ok=True)
+
     features_save_path = Path('features.npz')
     similarity_save_path = Path('similarity.npz')
-    checkpoint_path = Path('/home/hynek/projects/checkpoint.pth.tar')
-    data_dir = Path('/home/hynek/skola/FEL/5. semestr/test/480p/')
-    annotation_path = Path('/home/hynek/skola/FEL/5. semestr/test/annot/00000.png')
-    predictions_save_path = Path(f'/home/hynek/VOS_saves/{K=}')
-    predictions_save_path.mkdir(parents=True, exist_ok=True)
+
     labels, palette = load_annotation(annotation_path)
-    show = False
 
     logger.info('Loading features.')
     features = get_features(features_save_path, checkpoint_path, data_dir)
     logger.info('Getting spatial weight.')
     spatial_weight = get_spatial_weight(features.shape[2:], sigma=8).numpy()
     logger.info('Getting similarity matrix.')
-    similarity_matrix = get_similarity_matrix(similarity_save_path, features, spatial_weight, K=K)
+    similarity_matrix = get_similarity_matrix(similarity_save_path, features, spatial_weight, K=K_value)
 
     logger.info('Processing predictions.')
     start = time.time()
@@ -196,11 +210,9 @@ def main(K):
     logger.info(f'Processing took {end - start}s.')
 
     logger.info('Saving predictions.')
-    save_predictions(predictions_save_path, frames, palette, show=show)
+    save_predictions(predictions_save_path, frames, palette, show=show, gif=gif)
 
 
 if __name__ == '__main__':
-    # K = [1, 5, 10, 15, 25, 50, 150, 250, 500, 1000, 1500, 2000, -1]
-    # for k in K:
-    #     main(k)
-    main(1500)
+    equation_3()
+    # (["1", "5", "10", "15", "25", "50", "150", "250", "500", "1000", "1500", "2000", "-1"])
