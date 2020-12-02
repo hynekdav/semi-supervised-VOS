@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from src.config import Config
 from src.model.loss import CrossEntropy, FocalLoss
+from src.model.optimizer import LARS
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.utils import color_to_class
@@ -31,9 +32,11 @@ from src.utils.utils import color_to_class
 @click.option('--lr', type=float, default=0.02, help='initial learning rate')
 @click.option('--wd', type=float, default=3e-4, help='weight decay')
 @click.option('--cj', help='use color jitter')
-@click.option('--loss', type=click.Option(['ce', 'fl']), default='ce',
-              help='Loss function to use (CrossEntropy or FocalLoss)')
-def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss):
+@click.option('--loss', type=click.STRING, default='ce',
+              help='Loss function to use (CrossEntropy, FocalLoss or Supervised Contrastive)')
+@click.option('--optimizer', type=click.STRING, default='SGD', help='Optimizer to use (SGD or LARS).')
+# todo rozsirit trening o supcon loss a pouziti larse
+def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, optimizer):
     logger.info('Training started.')
     model = VOSNet(model=model)
     model = DataParallel(model)
@@ -44,11 +47,15 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     else:
         criterion = FocalLoss().to(Config.DEVICE)
 
-    optimizer = torch.optim.SGD(model.parameters(),
-                                lr=lr,
-                                momentum=0.9,
-                                nesterov=True,
-                                weight_decay=wd)
+    if optimizer == 'SGD':
+        optimizer = torch.optim.SGD(model.parameters(),
+                                    lr=lr,
+                                    momentum=0.9,
+                                    nesterov=True,
+                                    weight_decay=wd)
+    else:
+        optimizer = LARS(model.parameters(), lr=lr, eta=1e-3)
+
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, eta_min=4e-5)
     train_dataset = TrainDataset(Path(data) / 'JPEGImages/480p',
                                  Path(data) / 'Annotations/480p',
