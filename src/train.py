@@ -11,11 +11,11 @@ from torch.nn import DataParallel
 from tqdm import tqdm
 
 from src.config import Config
-from src.model.loss import CrossEntropy, FocalLoss
+from src.model.loss import CrossEntropy, FocalLoss, SupConLoss
 from src.model.optimizer import LARS
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
-from src.utils.utils import color_to_class
+from src.utils.utils import color_to_class, index_to_onehot
 
 
 @click.command(name='train')
@@ -42,10 +42,16 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     model = DataParallel(model)
     model = model.to(Config.DEVICE)
 
+    alternative_training = False
     if loss == 'ce':
         criterion = CrossEntropy(temperature=temperature).to(Config.DEVICE)
-    else:
+    elif loss == 'fl':
         criterion = FocalLoss().to(Config.DEVICE)
+    else:
+        criterion = SupConLoss().to(Config.DEVICE)
+        alternative_training = True
+        frame_num = 1
+        bs = 1
 
     if optimizer == 'SGD':
         optimizer = torch.optim.SGD(model.parameters(),
@@ -87,8 +93,12 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     centroids = np.load("./annotation_centroids.npy")
     centroids = torch.Tensor(centroids).float().to(Config.DEVICE)
 
+    model.train()
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
-        train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
+        if alternative_training:
+            train_alternative(train_loader, model, criterion, optimizer, epoch, centroids, batches)
+        else:
+            train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
         scheduler.step()
 
         checkpoint_name = 'checkpoint-epoch-{}.pth.tar'.format(epoch)
@@ -102,10 +112,37 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     logger.info('Training finished.')
 
 
+def train_alternative(train_loader, model, criterion, optimizer, epoch, centroids, batches):
+    for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
+                                                    total=batches):
+        img_input = img_input.to(Config.DEVICE).squeeze().unsqueeze(0)
+        annotation_input = annotation_input.squeeze()
+        (batch_size, num_channels, H, W) = img_input.shape
+        annotation_input = annotation_input.reshape(-1, 3, H, W).to(Config.DEVICE)
+        annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
+                                                                      scale_factor=Config.SCALE,
+                                                                      mode='bilinear',
+                                                                      align_corners=False)
+
+        labels = color_to_class(annotation_input_downsample, centroids)
+        features = model(img_input)
+
+        indices = torch.randint(high=1024, size=(1, 128)).squeeze()
+        features = features.reshape(256, 1024).squeeze().permute(1, 0).unsqueeze(2)
+        labels = labels.squeeze().reshape(1024)
+
+        features = features.index_select(0, indices)
+        labels = labels.index_select(-1, indices)
+
+        loss = criterion(features, labels)
+        loss.backward()
+
+        optimizer.step()
+        optimizer.zero_grad()
+
+
 def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
     # logger.info('Starting training epoch {}'.format(epoch))
-
-    model.train()
 
     for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
                                                     total=batches):

@@ -17,6 +17,7 @@ import torch
 from PIL import Image
 from skimage.transform import resize
 from torch.nn import DataParallel
+from torchvision import transforms
 from tqdm import tqdm, trange
 from scipy import sparse
 from loguru import logger
@@ -49,10 +50,14 @@ def generate_features(save_path, checkpoint_path, data_path):
     model = DataParallel(model)
     model.load_state_dict(checkpoint['state_dict'])
 
-    inference_dataset = InferenceDataset(data_path)
-    inference_loader = torch.utils.data.DataLoader(inference_dataset, batch_size=1, shuffle=False, num_workers=4)
+    rgb_normalize = transforms.Compose([transforms.ToTensor(),
+                                        transforms.Normalize(
+                                            mean=[0.485, 0.456, 0.406],
+                                            std=[0.229, 0.224, 0.225])])
     features = []
-    for img, _ in tqdm(inference_loader):
+    for img_path in tqdm(list(data_path.glob('*.jpg'))):
+        img = Image.open(img_path).convert('RGB')
+        img = rgb_normalize(np.asarray(img)).unsqueeze(0)
         features_tensor: torch.Tensor = model(img)
         features.append(features_tensor.detach().numpy())
     features = np.array(features)
@@ -166,16 +171,18 @@ def eq_3(frames, similarity: sparse.csr_matrix, labels, alpha=0.99):
 @click.option('-K', 'K_value', type=click.INT, required=True, help='How many values of each row to take.')
 @click.option('-d', '--data', type=click.Path(exists=True, file_okay=False, dir_okay=True), required=True,
               help='Images folder.')
+@click.option('-a', '--annotation', type=click.Path(exists=True, file_okay=False, dir_okay=True), required=True,
+              help='Annotation folder.')
 @click.option('-c', '--checkpoint', type=click.Path(exists=True, file_okay=True, dir_okay=False), required=True,
               help='Checkpoint path.')
 @click.option('-s', '--save', type=click.Path(file_okay=False, dir_okay=True), required=True, help='Save path.')
 @click.option('--show/--no-show', default=False, help='Show/no-show results.')
 @click.option('--gif/--no-gif', default=False, help='Save gif/pngs.')
-def equation_3(K_value, data, checkpoint, save, show, gif):
+def equation_3(K_value, data, annotation, checkpoint, save, show, gif):
     K_value = int(K_value)
     data = Path(data)
-    data_dir = data / '480p/'
-    annotation_path = data / 'annot/00000.png'
+    data_dir = data
+    annotation_path = Path(annotation) / '00000.png'
     checkpoint_path = Path(checkpoint)
     predictions_save_path = Path(save) / f'K={K_value}'
     predictions_save_path.mkdir(parents=True, exist_ok=True)
