@@ -198,3 +198,37 @@ class SupConLoss(nn.Module):
         loss = loss.view(anchor_count, batch_size).mean()
 
         return loss
+
+
+class SupervisedNTXentLoss(nn.Module):
+    def __init__(self, temperature=0.5, base_temperature=0.07):
+        super().__init__()
+        self.temperature = temperature
+        self.base_temperature = base_temperature
+
+    def forward(self, features: torch.Tensor, labels: torch.Tensor):
+        device = (torch.device('cuda')
+                  if features.is_cuda
+                  else torch.device('cpu'))
+
+        batch_size = features.shape[0]
+        labels = labels.unsqueeze(-1)
+
+        mask = torch.eq(labels, labels.T).float().to(device)
+        anchor_dot_contrast = torch.divide(torch.matmul(features, features.T), self.temperature)
+
+        logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
+        logits = anchor_dot_contrast - logits_max.detach()
+
+        logits_mask = torch.ones_like(mask) - torch.eye(batch_size)
+        mask = mask * logits_mask
+
+        exp_logits = torch.exp(logits) * logits_mask
+        log_prob = logits - torch.log(torch.sum(exp_logits, dim=1, keepdim=True))
+
+        mean_log_prob_pos = torch.sum(mask * log_prob, dim=1) / torch.sum(mask, dim=1)
+
+        loss = -(self.temperature / self.base_temperature) * mean_log_prob_pos
+        loss = torch.mean(loss[~torch.isnan(loss)])
+
+        return loss

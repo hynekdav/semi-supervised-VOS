@@ -8,10 +8,11 @@ import numpy as np
 import torch
 from loguru import logger
 from torch.nn import DataParallel
+from torch.nn import functional as F
 from tqdm import tqdm
 
 from src.config import Config
-from src.model.loss import CrossEntropy, FocalLoss, SupConLoss
+from src.model.loss import CrossEntropy, FocalLoss, SupConLoss, SupervisedNTXentLoss
 from src.model.optimizer import LARS
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
@@ -48,7 +49,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     elif loss == 'fl':
         criterion = FocalLoss().to(Config.DEVICE)
     else:
-        criterion = SupConLoss().to(Config.DEVICE)
+        criterion = SupervisedNTXentLoss().to(Config.DEVICE)
         alternative_training = True
         frame_num = 1
         bs = 1
@@ -115,8 +116,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
 def train_alternative(train_loader, model, criterion, optimizer, epoch, centroids, batches):
     for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
                                                     total=batches):
-        img_input = img_input.to(Config.DEVICE).squeeze().unsqueeze(0)
-        annotation_input = annotation_input.squeeze()
+        img_input = img_input.to(Config.DEVICE).squeeze(0)
         (batch_size, num_channels, H, W) = img_input.shape
         annotation_input = annotation_input.reshape(-1, 3, H, W).to(Config.DEVICE)
         annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
@@ -127,12 +127,10 @@ def train_alternative(train_loader, model, criterion, optimizer, epoch, centroid
         labels = color_to_class(annotation_input_downsample, centroids)
         features = model(img_input)
 
-        indices = torch.randint(high=1024, size=(1, 128)).squeeze()
-        features = features.reshape(256, 1024).squeeze().permute(1, 0).unsqueeze(2)
-        labels = labels.squeeze().reshape(1024)
+        features = features.reshape(-1, labels.shape[-1] * labels.shape[-2]).squeeze().permute(1, 0)
+        labels = labels.squeeze().reshape(labels.shape[-1] * labels.shape[-2])
 
-        features = features.index_select(0, indices)
-        labels = labels.index_select(-1, indices)
+        features = F.normalize(features, p=2, dim=1)
 
         loss = criterion(features, labels)
         loss.backward()
