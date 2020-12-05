@@ -215,7 +215,7 @@ class SupervisedNTXentLoss(nn.Module):
         labels = labels.unsqueeze(-1)
 
         mask = torch.eq(labels, labels.T).float().to(device)
-        anchor_dot_contrast = torch.divide(torch.matmul(features, features.T), self.temperature)
+        anchor_dot_contrast = torch.div(torch.matmul(features, features.T), self.temperature)
 
         logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
         logits = anchor_dot_contrast - logits_max.detach()
