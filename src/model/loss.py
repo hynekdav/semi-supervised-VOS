@@ -220,7 +220,7 @@ class SupervisedNTXentLoss(nn.Module):
         logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
         logits = anchor_dot_contrast - logits_max.detach()
 
-        logits_mask = torch.ones_like(mask) - torch.eye(batch_size)
+        logits_mask = torch.ones_like(mask, device=device) - torch.eye(batch_size, device=device)
         mask = mask * logits_mask
 
         exp_logits = torch.exp(logits) * logits_mask
