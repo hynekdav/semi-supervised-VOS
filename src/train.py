@@ -12,11 +12,11 @@ from torch.nn import functional as F
 from tqdm import tqdm
 
 from src.config import Config
-from src.model.loss import CrossEntropy, FocalLoss, SupConLoss, SupervisedNTXentLoss
+from src.model.loss import CrossEntropy, FocalLoss, TripletLoss, SupervisedNTXentLoss
 from src.model.optimizer import LARS
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
-from src.utils.utils import color_to_class, index_to_onehot
+from src.utils.utils import color_to_class
 
 
 @click.command(name='train')
@@ -49,7 +49,10 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     elif loss == 'fl':
         criterion = FocalLoss().to(Config.DEVICE)
     else:
-        criterion = SupervisedNTXentLoss().to(Config.DEVICE)
+        if loss == 'supcon':
+            criterion = SupervisedNTXentLoss().to(Config.DEVICE)
+        else:
+            criterion = TripletLoss().to(Config.DEVICE)
         alternative_training = True
         frame_num = 1
         bs = 1
