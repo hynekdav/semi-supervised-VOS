@@ -18,6 +18,8 @@ from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.utils import color_to_class
 
+from pytorch_metric_learning import losses, distances, miners
+
 
 @click.command(name='train')
 @click.option('--frame_num', '-n', type=int, default=10, help='number of frames to train')
@@ -50,9 +52,11 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
         criterion = FocalLoss().to(Config.DEVICE)
     else:
         if loss == 'supcon':
-            criterion = SupervisedNTXentLoss().to(Config.DEVICE)
+            criterion = losses.NTXentLoss().to(Config.DEVICE)
+        elif loss == 'triplet':
+            criterion = losses.TripletMarginLoss(distance=distances.CosineSimilarity()).to(Config.DEVICE)
         else:
-            criterion = TripletLoss().to(Config.DEVICE)
+            criterion = losses.ContrastiveLoss(distance=distances.CosineSimilarity()).to(Config.DEVICE)
         alternative_training = True
         frame_num = 1
         bs = 1
@@ -134,6 +138,10 @@ def train_alternative(train_loader, model, criterion, optimizer, epoch, centroid
         labels = labels.squeeze().reshape(labels.shape[-1] * labels.shape[-2])
 
         features = F.normalize(features, p=2, dim=1)
+
+        indices = torch.randint(low=0, high=1024, size=(256,))
+        features = features.index_select(0, indices)
+        labels = labels.index_select(0, indices)
 
         loss = criterion(features, labels)
         loss.backward()
