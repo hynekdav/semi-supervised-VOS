@@ -139,7 +139,7 @@ def train_alternative(train_loader, model, criterion, optimizer, epoch, centroid
 
         features = F.normalize(features, p=2, dim=1)
 
-        indices = torch.randint(low=0, high=1024, size=(256,))
+        indices = torch.randint(low=0, high=1024, size=(256,), device=Config.DEVICE)
         features = features.index_select(0, indices)
         labels = labels.index_select(0, indices)
 
