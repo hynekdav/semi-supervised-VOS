@@ -38,12 +38,14 @@ from pytorch_metric_learning import losses, distances, miners
 @click.option('--loss', type=click.STRING, default='ce',
               help='Loss function to use (CrossEntropy, FocalLoss or Supervised Contrastive)')
 @click.option('--optimizer', type=click.STRING, default='SGD', help='Optimizer to use (SGD or LARS).')
-# todo rozsirit trening o supcon loss a pouziti larse
-def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, optimizer):
+@click.option('--distance', type=click.STRING, default='cosine', help='Distance function (Cosine or L2).')
+def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, optimizer, distance):
     logger.info('Training started.')
     model = VOSNet(model=model)
     model = DataParallel(model)
     model = model.to(Config.DEVICE)
+
+    distance = distances.CosineSimilarity() if distance == 'cosine' else distances.LpDistance(power=2)
 
     alternative_training = False
     if loss == 'ce':
@@ -51,12 +53,10 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     elif loss == 'fl':
         criterion = FocalLoss().to(Config.DEVICE)
     else:
-        if loss == 'supcon':
-            criterion = losses.NTXentLoss().to(Config.DEVICE)
-        elif loss == 'triplet':
-            criterion = losses.TripletMarginLoss(distance=distances.CosineSimilarity()).to(Config.DEVICE)
+        if loss == 'triplet':
+            criterion = losses.TripletMarginLoss(distance=distance).to(Config.DEVICE)
         else:
-            criterion = losses.ContrastiveLoss(distance=distances.CosineSimilarity()).to(Config.DEVICE)
+            criterion = losses.ContrastiveLoss(distance=distance).to(Config.DEVICE)
         alternative_training = True
         frame_num = 1
         bs = 1
