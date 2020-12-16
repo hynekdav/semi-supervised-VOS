@@ -10,6 +10,7 @@ from loguru import logger
 from torch.nn import DataParallel
 from torch.nn import functional as F
 from tqdm import tqdm
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from src.config import Config
 from src.model.loss import CrossEntropy, FocalLoss, TripletLoss, SupervisedNTXentLoss
@@ -42,7 +43,7 @@ from pytorch_metric_learning import losses, distances, miners
 def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, optimizer, distance):
     logger.info('Training started.')
     model = VOSNet(model=model)
-    model = DataParallel(model)
+#    model = DDP(model)
     model = model.to(Config.DEVICE)
 
     distance = distances.CosineSimilarity() if distance == 'cosine' else distances.LpDistance(power=2)

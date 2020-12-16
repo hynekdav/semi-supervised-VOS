@@ -129,7 +129,7 @@ def get_spatial_weight(shape, sigma, t_loc: Optional[float] = None):
     (H, W) = shape
 
     index_matrix = torch.arange(H * W, dtype=torch.long).reshape(H * W, 1).to(Config.DEVICE)
-    index_matrix = torch.cat((index_matrix / W, index_matrix % W), -1)  # (H*W, 2)
+    index_matrix = torch.cat((index_matrix.div(float(W)), index_matrix % W), -1)  # (H*W, 2)
     d = index_matrix - index_matrix.unsqueeze(1)  # (H*W, H*W, 2)
     if t_loc is not None:
         d[d < t_loc] = 0.0
