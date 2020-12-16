@@ -37,11 +37,11 @@ def load_annotation(path):
     palette = annotation.getpalette()
     label = np.asarray(annotation)
     d = np.max(label) + 1
-    label = torch.tensor(label, dtype=torch.long)
+    label = torch.tensor(label, dtype=torch.long, device=Config.DEVICE)
     label_1hot = index_to_onehot(label.view(-1), d).reshape(1, d, H, W)
     size = np.round(np.array([H, W]) * Config.SCALE).astype(np.int)
-    labels = torch.nn.functional.interpolate(label_1hot, size=tuple(size.data))
-    return labels.to(torch.long).numpy(), palette
+    labels = torch.nn.functional.interpolate(label_1hot, size=tuple(size.data)).to(Config.DEVICE)
+    return labels.to(torch.long).cpu().numpy(), palette
 
 
 def generate_features(save_path, checkpoint_path, data_path):
@@ -59,7 +59,7 @@ def generate_features(save_path, checkpoint_path, data_path):
         img = Image.open(img_path).convert('RGB')
         img = rgb_normalize(np.asarray(img)).unsqueeze(0)
         features_tensor: torch.Tensor = model(img)
-        features.append(features_tensor.detach().numpy())
+        features.append(features_tensor.detach().cpu().numpy())
     features = np.array(features)
     features = features.squeeze()
     np.savez(save_path, features=features)
@@ -195,7 +195,7 @@ def equation_3(K_value, data, annotation, checkpoint, save, show, gif):
     logger.info('Loading features.')
     features = get_features(features_save_path, checkpoint_path, data_dir)
     logger.info('Getting spatial weight.')
-    spatial_weight = get_spatial_weight(features.shape[2:], sigma=8).numpy()
+    spatial_weight = get_spatial_weight(features.shape[2:], sigma=8).cpu().numpy()
     logger.info('Getting similarity matrix.')
     similarity_matrix = get_similarity_matrix(similarity_save_path, features, spatial_weight, K=K_value)
 
