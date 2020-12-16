@@ -5,30 +5,27 @@
 from __future__ import annotations
 from __future__ import generator_stop
 
+import asyncio
 import time
-from datetime import timedelta
 from pathlib import Path
 
+import click
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
 import seaborn as sns
 import torch
 from PIL import Image
+from loguru import logger
+from scipy import sparse
 from skimage.transform import resize
 from torch.nn import DataParallel
 from torchvision import transforms
 from tqdm import tqdm, trange
-from scipy import sparse
-from loguru import logger
 
 from src.config import Config
-from src.model.predict import get_spatial_weight
+from src.model.predict import get_spatial_weight, get_temporal_weight, get_descriptor_weight
 from src.model.vos_net import VOSNet
-from src.utils.datasets import InferenceDataset
 from src.utils.utils import index_to_onehot
-
-import click
 
 
 def load_annotation(path):
@@ -40,7 +37,7 @@ def load_annotation(path):
     label = torch.tensor(label, dtype=torch.long, device=Config.DEVICE)
     label_1hot = index_to_onehot(label.view(-1), d).reshape(1, d, H, W)
     size = np.round(np.array([H, W]) * Config.SCALE).astype(np.int)
-    labels = torch.nn.functional.interpolate(label_1hot, size=tuple(size.data)).to(Config.DEVICE)
+    labels = torch.nn.functional.interpolate(label_1hot.to(Config.DEVICE), size=tuple(size.data))
     return labels.to(torch.long).cpu().numpy(), palette
 
 
@@ -48,14 +45,18 @@ def generate_features(save_path, checkpoint_path, data_path):
     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
     model = VOSNet(model='resnet50')
     model = DataParallel(model)
-    model.load_state_dict(checkpoint['state_dict'])
+
+    if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+        model.load_state_dict(checkpoint['state_dict'])
+    else:
+        model.load_state_dict(checkpoint)
 
     rgb_normalize = transforms.Compose([transforms.ToTensor(),
                                         transforms.Normalize(
                                             mean=[0.485, 0.456, 0.406],
                                             std=[0.229, 0.224, 0.225])])
     features = []
-    for img_path in tqdm(list(data_path.glob('*.jpg'))):
+    for img_path in tqdm(sorted(list(data_path.glob('*.jpg')))):
         img = Image.open(img_path).convert('RGB')
         img = rgb_normalize(np.asarray(img)).unsqueeze(0)
         features_tensor: torch.Tensor = model(img)
@@ -117,6 +118,29 @@ def softmax(X, axis=None):
     return p
 
 
+async def _top_k(data, row, k):
+    """
+    Helper function to process a single row of top_k
+    """
+    data, row = zip(*sorted(zip(data, row), reverse=True)[:k])
+    return data, row
+
+
+async def top_k(m, k):
+    """
+    Keep only the top k elements of each row in a csr_matrix
+    """
+    ml = m.tolil()
+
+    tasks = [asyncio.create_task(_top_k(data, row, k)) for data, row in zip(ml.data, ml.rows)]
+    for t in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
+        await t
+    results = [t.result() for t in tasks]
+    ml.data, ml.rows = zip(*results)
+
+    return ml.tocsr()
+
+
 def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150):
     if similarity_save_path.exists():
         logger.info('Loading similarity matrix.')
@@ -130,7 +154,11 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
                 a = np.transpose(features[i], axes=[1, 2, 0]).reshape((w * h, dims))
                 b = features[j].reshape((dims, w * h))
                 c = a @ b
-                c = (softmax(c, axis=0) * spatial_weight).T
+                softmaxed = softmax(c, axis=0)
+                # temporal_weight = get_temporal_weight(a, b, sigma=8)
+                # descriptor_weight = get_descriptor_weight(c, p=3<)
+                # c = (softmaxed * temporal_weight * descriptor_weight * spatial_weight).T
+                c = (softmaxed * spatial_weight).T
                 shape = c.shape
                 similarity[j * shape[1]:j * shape[1] + shape[1], i * shape[0]:i * shape[0] + shape[0]] = c.astype(
                     np.float16)
@@ -139,13 +167,14 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
 
     if K != -1:
         logger.info(f'Selecting top {K=} from each row.')
-        for i in trange(similarity.shape[0]):
-            row = similarity[i].toarray().squeeze()
-            indices = np.argpartition(row, -K)[-K:]
-            values = row[indices]
-            row[:] = 0
-            row[indices] = values
-            similarity[i] = row
+        similarity = asyncio.run(top_k(similarity, K))
+        # for i in trange(similarity.shape[0]):
+        #     row = similarity[i].toarray().squeeze()
+        #     indices = np.argpartition(row, -K)[-K:]
+        #     values = row[indices]
+        #     row[:] = 0
+        #     row[indices] = values
+        #     similarity[i] = row
 
     logger.info('Returning sparse matrix.')
     return similarity.tocsr()
@@ -153,13 +182,13 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
 
 def eq_3(frames, similarity: sparse.csr_matrix, labels, alpha=0.99):
     frames -= 1
-    all_frames = np.zeros((frames * labels.shape[0] * labels.shape[1], 1), dtype=np.float32)
+    all_frames = np.zeros((frames * labels.shape[0] * labels.shape[1], 1), dtype=np.float64)
     labels = labels.reshape(labels.shape[0] * labels.shape[1], -1).astype(np.float32)
     all_frames = np.vstack((labels, all_frames))
 
     y_old = all_frames
 
-    iter = 10
+    iter = 30
     for _ in tqdm(range(iter), desc='Computing y_new.'):
         y_new = alpha * (similarity @ y_old) + (1 - alpha) * all_frames
         y_old = y_new

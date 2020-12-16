@@ -10,6 +10,6 @@ do
   for K in "${k[@]}";
   do
     echo "$folder - $K"
-    python3.8 equation_3.py -K "$K" -d ~/skola/FEL/5.\ semestr/test/480p/"$folder"/ -a ~/skola/FEL/5.\ semestr/test/annot/"$folder"/ -c ~/projects/checkpoint.pth.tar -s ~/VOS_saves/"$folder"
+    python3.8 equation_3.py -K "$K" -d ~/skola/FEL/5.\ semestr/test/480p/"$folder"/ -a ~/skola/FEL/5.\ semestr/test/annot/"$folder"/ -c "/home/hynek/skola/FEL/5. semestr/semi-supervised-VOS/checkpoint-epoch-24-contrastive.pth.tar" -s ~/VOS_saves/contrastive/"$folder"
   done
 done

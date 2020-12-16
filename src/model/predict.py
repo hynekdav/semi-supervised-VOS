@@ -3,6 +3,8 @@
 
 
 import os
+from typing import Optional
+
 import torch
 import numpy as np
 
@@ -117,7 +119,7 @@ def prepare_first_frame(curr_video,
     return label_1hot, d, palette, weight_dense, weight_sparse
 
 
-def get_spatial_weight(shape, sigma):
+def get_spatial_weight(shape, sigma, t_loc: Optional[float] = None):
     """
     Get soft spatial weights for similarity matrix.
     :param shape: (H, W)
@@ -129,7 +131,24 @@ def get_spatial_weight(shape, sigma):
     index_matrix = torch.arange(H * W, dtype=torch.long).reshape(H * W, 1).to(Config.DEVICE)
     index_matrix = torch.cat((index_matrix / W, index_matrix % W), -1)  # (H*W, 2)
     d = index_matrix - index_matrix.unsqueeze(1)  # (H*W, H*W, 2)
+    if t_loc is not None:
+        d[d < t_loc] = 0.0
     d = d.float().pow(2).sum(-1)  # (H*W, H*W)
     w = (- d / sigma ** 2).exp()
+
+    return w
+
+
+def get_descriptor_weight(array: np.array, p: float = 0.5):
+    pow = np.power(array, p)
+    return np.sign(pow) * np.abs(pow)
+
+
+def get_temporal_weight(frame_1: np.array, frame_2: np.array, sigma, t_temp: Optional[float] = None):
+    d = frame_1 - frame_2.T
+    if t_temp is not None:
+        d[d < t_temp] = 0.0
+    d = np.sum(np.power(d, 2), axis=-1)
+    w = np.exp(-d / sigma ** 2)
 
     return w

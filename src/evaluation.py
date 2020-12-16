@@ -7,6 +7,7 @@ import click
 import numpy as np
 from loguru import logger
 from skimage.io import imread
+from skimage.transform import resize
 from tqdm import tqdm
 
 from multiprocessing import Pool
@@ -17,7 +18,7 @@ from src.utils.metrics import evaluate_segmentation
 
 def process_pair(gt, seg):
     gt_img = np.ceil(imread(str(gt), as_gray=True))
-    seg_img = np.ceil(imread(str(seg), as_gray=True))
+    seg_img = np.ceil(resize(imread(str(seg), as_gray=True), gt_img.shape))
     return evaluate_segmentation(gt_img, seg_img)
 
 
