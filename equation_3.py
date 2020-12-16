@@ -27,6 +27,8 @@ from src.model.predict import get_spatial_weight, get_temporal_weight, get_descr
 from src.model.vos_net import VOSNet
 from src.utils.utils import index_to_onehot
 
+from concurrent import futures
+
 
 def load_annotation(path):
     annotation = Image.open(path)
@@ -118,24 +120,29 @@ def softmax(X, axis=None):
     return p
 
 
-async def _top_k(data, row, k):
+def _top_k(args):
     """
     Helper function to process a single row of top_k
     """
+    data, row, k = args
     data, row = zip(*sorted(zip(data, row), reverse=True)[:k])
     return data, row
 
 
-async def top_k(m, k):
+def top_k(m, k):
     """
     Keep only the top k elements of each row in a csr_matrix
     """
     ml = m.tolil()
 
-    tasks = [asyncio.create_task(_top_k(data, row, k)) for data, row in zip(ml.data, ml.rows)]
-    for t in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
-        await t
-    results = [t.result() for t in tasks]
+    with futures.ProcessPoolExecutor(max_workers=Config.CPU_COUNT) as pool:
+        logger.debug('Submitting tasks.')
+        tasks = [pool.submit(_top_k, (data, row, k, )) for data, row in zip(ml.data, ml.rows)]
+        logger.debug('Tasks submitted.')
+
+    logger.debug('Starting getting results.')
+    results = [task.result() for task in tasks]
+    logger.debug('Got all results back.')
     ml.data, ml.rows = zip(*results)
 
     return ml.tocsr()
@@ -167,7 +174,7 @@ def get_similarity_matrix(similarity_save_path, features, spatial_weight, K=150)
 
     if K != -1:
         logger.info(f'Selecting top {K=} from each row.')
-        similarity = asyncio.run(top_k(similarity, K))
+        similarity = top_k(similarity, K)
         # for i in trange(similarity.shape[0]):
         #     row = similarity[i].toarray().squeeze()
         #     indices = np.argpartition(row, -K)[-K:]
