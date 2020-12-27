@@ -124,7 +124,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     logger.info('Training finished.')
 
 
-def train_alternative(train_loader, model, criterion, optimizer, miner, epoch, centroids, batches):
+def train_alternative(train_loader, model, criterion, miner, optimizer, epoch, centroids, batches):
     for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
                                                     total=batches):
         img_input = img_input.to(Config.DEVICE).squeeze(0)
