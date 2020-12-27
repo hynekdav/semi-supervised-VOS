@@ -40,13 +40,14 @@ from pytorch_metric_learning import losses, distances, miners
               help='Loss function to use (CrossEntropy, FocalLoss or Supervised Contrastive)')
 @click.option('--optimizer', type=click.STRING, default='SGD', help='Optimizer to use (SGD or LARS).')
 @click.option('--distance', type=click.STRING, default='cosine', help='Distance function (Cosine or L2).')
-def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, optimizer, distance):
+def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, optimizer,
+                  distance):
     logger.info('Training started.')
     model = VOSNet(model=model)
-#    model = DDP(model)
     model = model.to(Config.DEVICE)
 
-    distance = distances.CosineSimilarity() if distance == 'cosine' else distances.LpDistance(power=2)
+    distance = distances.CosineSimilarity() if distance == 'cosine' else distances.LpDistance(normalize_embeddings=True,
+                                                                                              power=2)
 
     alternative_training = False
     if loss == 'ce':
@@ -55,9 +56,11 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
         criterion = FocalLoss().to(Config.DEVICE)
     else:
         if loss == 'triplet':
-            criterion = losses.TripletMarginLoss(distance=distance).to(Config.DEVICE)
+            criterion = losses.TripletMarginLoss(margin=0.2, distance=distance).to(Config.DEVICE)
+            miner = miners.TripletMarginMiner().to(Config.DEVICE)
         else:
-            criterion = losses.ContrastiveLoss(distance=distance).to(Config.DEVICE)
+            criterion = losses.ContrastiveLoss(pos_margin=0.2, neg_margin=0.8, distance=distance).to(Config.DEVICE)
+            miner = miners.PairMarginMiner().to(Config.DEVICE)
         alternative_training = True
         frame_num = 1
         bs = 1
@@ -69,7 +72,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
                                     nesterov=True,
                                     weight_decay=wd)
     else:
-        optimizer = LARS(model.parameters(), lr=lr, eta=1e-3)
+        optimizer = LARS(model.parameters(), lr=lr, weight_decay=wd)
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, eta_min=4e-5)
     train_dataset = TrainDataset(Path(data) / 'JPEGImages/480p',
@@ -105,7 +108,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     model.train()
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
         if alternative_training:
-            train_alternative(train_loader, model, criterion, optimizer, epoch, centroids, batches)
+            train_alternative(train_loader, model, criterion, miner, optimizer, epoch, centroids, batches)
         else:
             train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
         scheduler.step()
@@ -121,7 +124,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     logger.info('Training finished.')
 
 
-def train_alternative(train_loader, model, criterion, optimizer, epoch, centroids, batches):
+def train_alternative(train_loader, model, criterion, optimizer, miner, epoch, centroids, batches):
     for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
                                                     total=batches):
         img_input = img_input.to(Config.DEVICE).squeeze(0)
@@ -129,7 +132,7 @@ def train_alternative(train_loader, model, criterion, optimizer, epoch, centroid
         annotation_input = annotation_input.reshape(-1, 3, H, W).to(Config.DEVICE)
         annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
                                                                       scale_factor=Config.SCALE,
-                                                                      mode='bilinear',
+                                                                      mode='nearest',
                                                                       align_corners=False)
 
         labels = color_to_class(annotation_input_downsample, centroids)
@@ -139,12 +142,9 @@ def train_alternative(train_loader, model, criterion, optimizer, epoch, centroid
         labels = labels.squeeze().reshape(labels.shape[-1] * labels.shape[-2])
 
         features = F.normalize(features, p=2, dim=1)
+        miner_output = miner(features, labels)
 
-        indices = torch.randint(low=0, high=1024, size=(256,), device=Config.DEVICE)
-        features = features.index_select(0, indices)
-        labels = labels.index_select(0, indices)
-
-        loss = criterion(features, labels)
+        loss = criterion(features, labels, miner_output)
         loss.backward()
 
         optimizer.step()
