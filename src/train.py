@@ -132,7 +132,7 @@ def train_alternative(train_loader, model, criterion, optimizer, miner, epoch, c
         annotation_input = annotation_input.reshape(-1, 3, H, W).to(Config.DEVICE)
         annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
                                                                       scale_factor=Config.SCALE,
-                                                                      mode='nearest',
+                                                                      mode='bilinear',
                                                                       align_corners=False)
 
         labels = color_to_class(annotation_input_downsample, centroids)
