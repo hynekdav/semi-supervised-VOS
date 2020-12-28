@@ -142,6 +142,12 @@ def train_alternative(train_loader, model, criterion, miner, optimizer, epoch, c
         labels = labels.squeeze().reshape(labels.shape[-1] * labels.shape[-2])
 
         features = F.normalize(features, p=2, dim=1)
+
+        if isinstance(miner, miners.TripletMarginMiner):
+            indices = torch.randint(low=0, high=features.shape[0], size=(256,), device=Config.DEVICE)
+            features = features.index_select(0, indices)
+            labels = labels.index_select(0, indices)
+
         miner_output = miner(features, labels)
 
         loss = criterion(features, labels, miner_output)
