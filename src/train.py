@@ -108,12 +108,12 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     model.train()
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
         if alternative_training:
-            train_alternative(train_loader, model, criterion, miner, optimizer, epoch, centroids, batches)
+            loss = train_alternative(train_loader, model, criterion, miner, optimizer, epoch, centroids, batches)
         else:
-            train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
+            loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
         scheduler.step()
 
-        checkpoint_name = 'checkpoint-epoch-{}.pth.tar'.format(epoch)
+        checkpoint_name = 'checkpoint-epoch-{}-{}.pth.tar'.format(epoch, loss)
         save_path = save_model / checkpoint_name
         torch.save({
             'epoch': epoch + 1,
@@ -125,6 +125,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
 
 
 def train_alternative(train_loader, model, criterion, miner, optimizer, epoch, centroids, batches):
+    mean_loss = []
     for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
                                                     total=batches):
         img_input = img_input.to(Config.DEVICE).squeeze(0)
@@ -151,15 +152,17 @@ def train_alternative(train_loader, model, criterion, miner, optimizer, epoch, c
         miner_output = miner(features, labels)
 
         loss = criterion(features, labels, miner_output)
+        mean_loss.append(loss.item())
         loss.backward()
 
         optimizer.step()
         optimizer.zero_grad()
+    return np.array(mean_loss).mean()
 
 
 def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
     # logger.info('Starting training epoch {}'.format(epoch))
-
+    mean_loss = []
     for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
                                                     total=batches):
         (batch_size, num_frames, num_channels, H, W) = img_input.shape
@@ -189,9 +192,11 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
             2, ref_label.unsqueeze(2), 1)
 
         loss = criterion(ref, target, ref_label, target_label)
+        mean_loss.append(loss.item())
         loss.backward()
 
         optimizer.step()
         optimizer.zero_grad()
+    return np.array(mean_loss).mean()
 
     # logger.info('Finished training epoch {}'.format(epoch))
