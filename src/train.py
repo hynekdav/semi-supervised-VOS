@@ -56,11 +56,11 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
         criterion = FocalLoss().to(Config.DEVICE)
     else:
         if loss == 'triplet':
-            criterion = losses.TripletMarginLoss(margin=0.2, distance=distance).to(Config.DEVICE)
-            miner = miners.TripletMarginMiner()
+            criterion = losses.TripletMarginLoss(margin=0.15, distance=distance).to(Config.DEVICE)
+            miner = miners.TripletMarginMiner(margin=0.15)
         else:
-            criterion = losses.ContrastiveLoss(pos_margin=0.2, neg_margin=0.8, distance=distance).to(Config.DEVICE)
-            miner = miners.PairMarginMiner()
+            criterion = losses.ContrastiveLoss(pos_margin=0.1, neg_margin=0.9, distance=distance).to(Config.DEVICE)
+            miner = miners.PairMarginMiner(pos_margin=0.1, neg_margin=0.9)
         alternative_training = True
         frame_num = 1
         bs = 1
