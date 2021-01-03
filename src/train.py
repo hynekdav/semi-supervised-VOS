@@ -57,7 +57,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     else:
         if loss == 'triplet':
             # todo prepsat to z triplet margin loss na klasickou triplet loss
-            criterion = losses.TripletMarginLoss(distance=distance, margin=0.0, triplets_per_anchor=128).to(
+            criterion = losses.TripletMarginLoss(distance=distance, margin=0.01, triplets_per_anchor=128).to(
                 Config.DEVICE)
             miner = None  # miners.TripletMarginMiner(type_of_triplets='hard')
         else:
@@ -115,7 +115,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
             loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
         scheduler.step()
 
-        checkpoint_name = 'checkpoint-epoch-{}-{}.pth.tar'.format(epoch, loss)
+        checkpoint_name = 'checkpoint-epoch-{:03d}-{}.pth.tar'.format(epoch, loss)
         save_path = save_model / checkpoint_name
         torch.save({
             'epoch': epoch + 1,
