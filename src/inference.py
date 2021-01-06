@@ -19,6 +19,22 @@ from src.utils.datasets import InferenceDataset
 from src.utils.utils import save_prediction, index_to_onehot
 
 
+def load_model(model, checkpoint):
+    if checkpoint is not None:
+        if os.path.isfile(checkpoint):
+            logger.info("=> loading checkpoint '{}'".format(checkpoint))
+            checkpoint = torch.load(checkpoint, map_location=Config.DEVICE)
+            if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+                model.load_state_dict(checkpoint['state_dict'])
+            else:
+                model.load_state_dict(checkpoint)
+            logger.info("=> loaded checkpoint '{}'".format(checkpoint))
+        else:
+            logger.info("=> no checkpoint found at '{}'".format(checkpoint))
+            exit(-1)
+    return model
+
+
 @click.command(name='inference')
 @click.option('--ref_num', '-n', type=int, default=9, help='number of reference frames for inference')
 @click.option('--data', '-d', type=click.Path(file_okay=False, dir_okay=True), required=True,
@@ -40,18 +56,13 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
     if Config.DEVICE.type != device:
         Config.DEVICE = torch.device(device)
     model = VOSNet(model=model)
-    model = nn.DataParallel(model)
-    model = model.to(Config.DEVICE)
+    try:
+        model = load_model(model, resume)
+    except Exception:
+        model = nn.DataParallel(model)
+        model = load_model(model, resume)
 
-    if resume is not None:
-        if os.path.isfile(resume):
-            logger.info("=> loading checkpoint '{}'".format(resume))
-            checkpoint = torch.load(resume, map_location=Config.DEVICE)
-            model.load_state_dict(checkpoint['state_dict'])
-            logger.info("=> loaded checkpoint '{}'".format(resume))
-        else:
-            logger.info("=> no checkpoint found at '{}'".format(resume))
-            exit(-1)
+    model = model.to(Config.DEVICE)
     model.eval()
 
     data_dir = Path(data) / 'JPEGImages/480p'  # os.path.join(data, '/JPEGImages/480p')
