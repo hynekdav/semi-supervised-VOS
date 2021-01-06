@@ -20,6 +20,7 @@ from src.utils.utils import save_prediction, index_to_onehot
 
 
 def load_model(model, checkpoint):
+    checkpoint_path = checkpoint
     if checkpoint is not None:
         if os.path.isfile(checkpoint):
             logger.info("=> loading checkpoint '{}'".format(checkpoint))
@@ -28,9 +29,9 @@ def load_model(model, checkpoint):
                 model.load_state_dict(checkpoint['state_dict'])
             else:
                 model.load_state_dict(checkpoint)
-            logger.info("=> loaded checkpoint '{}'".format(checkpoint))
+            logger.info("=> loaded checkpoint '{}'".format(checkpoint_path))
         else:
-            logger.info("=> no checkpoint found at '{}'".format(checkpoint))
+            logger.info("=> no checkpoint found at '{}'".format(checkpoint_path))
             exit(-1)
     return model
 
