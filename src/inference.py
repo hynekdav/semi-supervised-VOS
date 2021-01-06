@@ -16,24 +16,7 @@ from src.config import Config
 from src.model.predict import predict, prepare_first_frame
 from src.model.vos_net import VOSNet
 from src.utils.datasets import InferenceDataset
-from src.utils.utils import save_prediction, index_to_onehot
-
-
-def load_model(model, checkpoint):
-    checkpoint_path = checkpoint
-    if checkpoint is not None:
-        if os.path.isfile(checkpoint):
-            logger.info("=> loading checkpoint '{}'".format(checkpoint))
-            checkpoint = torch.load(checkpoint, map_location=Config.DEVICE)
-            if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
-                model.load_state_dict(checkpoint['state_dict'])
-            else:
-                model.load_state_dict(checkpoint)
-            logger.info("=> loaded checkpoint '{}'".format(checkpoint_path))
-        else:
-            logger.info("=> no checkpoint found at '{}'".format(checkpoint_path))
-            exit(-1)
-    return model
+from src.utils.utils import save_prediction, index_to_onehot, load_model
 
 
 @click.command(name='inference')

@@ -7,19 +7,17 @@ import click
 import numpy as np
 import torch
 from loguru import logger
-from torch.nn import DataParallel
+from pytorch_metric_learning import losses, distances, miners
+from torch import nn
 from torch.nn import functional as F
 from tqdm import tqdm
-from torch.nn.parallel import DistributedDataParallel as DDP
 
 from src.config import Config
-from src.model.loss import CrossEntropy, FocalLoss, TripletLoss, SupervisedNTXentLoss
+from src.model.loss import CrossEntropy, FocalLoss
 from src.model.optimizer import LARS
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
-from src.utils.utils import color_to_class
-
-from pytorch_metric_learning import losses, distances, miners
+from src.utils.utils import color_to_class, load_model
 
 
 @click.command(name='train')
@@ -43,6 +41,7 @@ from pytorch_metric_learning import losses, distances, miners
 def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, optimizer,
                   distance):
     logger.info('Training started.')
+
     model = VOSNet(model=model)
     model = model.to(Config.DEVICE)
 
@@ -93,13 +92,18 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
 
     start_epoch = 0
     if resume is not None:
-        logger.info("=> loading checkpoint '{}'".format(resume))
-        checkpoint = torch.load(resume, map_location=Config.DEVICE)
-        start_epoch = checkpoint['epoch']
-        model.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        scheduler.load_state_dict(checkpoint['scheduler'])
-        logger.info("=> loaded checkpoint '{}' (epoch {})".format(resume, checkpoint['epoch']))
+        try:
+            model = load_model(model, resume)
+        except Exception:
+            model = nn.DataParallel(model)
+            model = load_model(model, resume)
+        # logger.info("=> loading checkpoint '{}'".format(resume))
+        # checkpoint = torch.load(resume, map_location=Config.DEVICE)
+        # start_epoch = checkpoint['epoch']
+        # model.load_state_dict(checkpoint['state_dict'])
+        # optimizer.load_state_dict(checkpoint['optimizer'])
+        # scheduler.load_state_dict(checkpoint['scheduler'])
+        # logger.info("=> loaded checkpoint '{}' (epoch {})".format(resume, checkpoint['epoch']))
 
     save_model = Path(save_model)
     if not save_model.exists():
