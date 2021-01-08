@@ -99,15 +99,16 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
             with torch.cuda.amp.autocast():
                 features = model(input)
             (_, feature_dim, H_d, W_d) = features.shape
-            prediction = predict(feats_history,
-                                 features[0],
-                                 label_history,
-                                 weight_dense,
-                                 weight_sparse,
-                                 frame_idx,
-                                 frame_range,
-                                 ref_num,
-                                 temperature)
+            with torch.cuda.amp.autocast():
+                prediction = predict(feats_history,
+                                     features[0],
+                                     label_history,
+                                     weight_dense,
+                                     weight_sparse,
+                                     frame_idx,
+                                     frame_range,
+                                     ref_num,
+                                     temperature)
             # Store all frames' features
             new_label = index_to_onehot(torch.argmax(prediction, 0), d).unsqueeze(1)
             label_history = torch.cat((label_history, new_label), 1)
