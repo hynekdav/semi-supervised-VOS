@@ -108,12 +108,11 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     centroids = torch.Tensor(centroids).float().to(Config.DEVICE)
 
     model.train()
-    scaler = torch.cuda.amp.GradScaler()
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
         if alternative_training:
             loss = train_alternative(train_loader, model, criterion, miner, optimizer, epoch, centroids, batches)
         else:
-            loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches, scaler)
+            loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
         scheduler.step()
 
         checkpoint_name = 'checkpoint-epoch-{:03d}-{}.pth.tar'.format(epoch, loss)
@@ -160,12 +159,11 @@ def train_alternative(train_loader, model, criterion, miner, optimizer, epoch, c
     return np.array(mean_loss).mean()
 
 
-def train(train_loader, model, criterion, optimizer, epoch, centroids, batches, scaler):
+def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
     # logger.info('Starting training epoch {}'.format(epoch))
     mean_loss = []
     for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
                                                     total=batches):
-        optimizer.zero_grad()
         (batch_size, num_frames, num_channels, H, W) = img_input.shape
         annotation_input = annotation_input.reshape(-1, 3, H, W).to(Config.DEVICE)
         annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
@@ -180,28 +178,24 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches, 
 
         img_input = img_input.reshape(-1, num_channels, H, W).to(Config.DEVICE)
 
-        with torch.cuda.amp.autocast():
-            features = model(img_input)
-            feature_dim = features.shape[1]
-            features = features.reshape(batch_size, num_frames, feature_dim, H_d, W_d)
+        features = model(img_input)
+        feature_dim = features.shape[1]
+        features = features.reshape(batch_size, num_frames, feature_dim, H_d, W_d)
 
-            ref = features[:, 0:num_frames - 1, :, :, :]
-            target = features[:, -1, :, :, :]
-            ref_label = annotation_input[:, 0:num_frames - 1, :, :]
-            target_label = annotation_input[:, -1, :, :]
+        ref = features[:, 0:num_frames - 1, :, :, :]
+        target = features[:, -1, :, :, :]
+        ref_label = annotation_input[:, 0:num_frames - 1, :, :]
+        target_label = annotation_input[:, -1, :, :]
 
-            ref_label = torch.zeros(batch_size, num_frames - 1, centroids.shape[0], H_d, W_d).to(
-                Config.DEVICE).scatter_(
-                2, ref_label.unsqueeze(2), 1)
+        ref_label = torch.zeros(batch_size, num_frames - 1, centroids.shape[0], H_d, W_d).to(Config.DEVICE).scatter_(
+            2, ref_label.unsqueeze(2), 1)
 
-            loss = criterion(ref, target, ref_label, target_label)
+        loss = criterion(ref, target, ref_label, target_label)
         mean_loss.append(loss.item())
-        scaler.scale(loss).backward()
+        loss.backward()
 
-        scaler.step(optimizer)
-        scaler.update()
-        # optimizer.step()
-        # optimizer.zero_grad()
+        optimizer.step()
+        optimizer.zero_grad()
     return np.array(mean_loss).mean()
 
     # logger.info('Finished training epoch {}'.format(epoch))
