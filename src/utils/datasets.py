@@ -78,12 +78,13 @@ class TrainDataset(datasets.ImageFolder):
             annotation = Image.open(BytesIO(self.annotation_bytes[index + i]))  # (W, H), -P mode
             annotation = annotation.convert('RGB')
 
-            if h_flip:
-                img = img.transpose(Image.FLIP_LEFT_RIGHT)
-                annotation = annotation.transpose(Image.FLIP_LEFT_RIGHT)
-            if v_flip:
-                img = img.transpose(Image.FLIP_TOP_BOTTOM)
-                annotation = annotation.transpose(Image.FLIP_TOP_BOTTOM)
+            # TODO pokud to nepomuze, tak odstranit
+            # if h_flip:
+            #     img = img.transpose(Image.FLIP_LEFT_RIGHT)
+            #     annotation = annotation.transpose(Image.FLIP_LEFT_RIGHT)
+            # if v_flip:
+            #     img = img.transpose(Image.FLIP_TOP_BOTTOM)
+            #     annotation = annotation.transpose(Image.FLIP_TOP_BOTTOM)
             if i == 0:
                 W, H = img.size
                 crop_i, crop_j, th, tw = get_crop_params((W, H), self.cropping)
