@@ -36,10 +36,8 @@ from src.utils.utils import color_to_class, load_model
 @click.option('--cj', help='use color jitter')
 @click.option('--loss', type=click.STRING, default='ce',
               help='Loss function to use (CrossEntropy, FocalLoss or Supervised Contrastive)')
-@click.option('--optimizer', type=click.STRING, default='SGD', help='Optimizer to use (SGD or LARS).')
 @click.option('--distance', type=click.STRING, default='cosine', help='Distance function (Cosine or L2).')
-def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, optimizer,
-                  distance):
+def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, distance):
     logger.info('Training started.')
 
     model = VOSNet(model=model)
@@ -67,14 +65,11 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
         frame_num = 1
         bs = 1
 
-    if optimizer == 'SGD':
-        optimizer = torch.optim.SGD(model.parameters(),
-                                    lr=lr,
-                                    momentum=0.9,
-                                    nesterov=True,
-                                    weight_decay=wd)
-    else:
-        optimizer = LARS(model.parameters(), lr=lr, weight_decay=wd)
+    optimizer = torch.optim.SGD(model.parameters(),
+                                lr=lr,
+                                momentum=0.9,
+                                nesterov=True,
+                                weight_decay=wd)
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, eta_min=4e-5)
     train_dataset = TrainDataset(Path(data) / 'JPEGImages/480p',

@@ -47,6 +47,7 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
         model = load_model(model, resume)
 
     model = model.to(Config.DEVICE)
+    model = model.half()
     model.eval()
 
     data_dir = Path(data) / 'JPEGImages/480p'  # os.path.join(data, '/JPEGImages/480p')
@@ -81,7 +82,7 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
                 video_idx += 1
             if frame_idx == 0:
                 input = input.to(Config.DEVICE)
-                with torch.no_grad():
+                with torch.cuda.amp.autocast():
                     feats_history = model(input)
                 first_annotation = annotation_dir / curr_video / '00000.png'
                 label_history, d, palette, weight_dense, weight_sparse = prepare_first_frame(curr_video,
@@ -95,7 +96,8 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
             (batch_size, num_channels, H, W) = input.shape
             input = input.to(Config.DEVICE)
 
-            features = model(input)
+            with torch.cuda.amp.autocast():
+                features = model(input)
             (_, feature_dim, H_d, W_d) = features.shape
             prediction = predict(feats_history,
                                  features[0],
