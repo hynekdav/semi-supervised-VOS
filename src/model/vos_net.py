@@ -40,3 +40,6 @@ class VOSNet(nn.Module):
             x = self.bn256(x)
 
         return x
+
+    def freeze_feature_extraction(self):
+        self.backbone.requires_grad_(False)

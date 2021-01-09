@@ -54,7 +54,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     else:
         if loss == 'triplet':
             # todo prepsat to z triplet margin loss na klasickou triplet loss
-            criterion = losses.TripletMarginLoss(distance=distance, margin=0.01, triplets_per_anchor=128).to(
+            criterion = losses.TripletMarginLoss(distance=distance, margin=0.01, triplets_per_anchor=256).to(
                 Config.DEVICE)
             miner = None  # miners.TripletMarginMiner(type_of_triplets='hard')
         else:
@@ -92,13 +92,6 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
         except Exception:
             model = nn.DataParallel(model)
             model = load_model(model, resume)
-        # logger.info("=> loading checkpoint '{}'".format(resume))
-        # checkpoint = torch.load(resume, map_location=Config.DEVICE)
-        # start_epoch = checkpoint['epoch']
-        # model.load_state_dict(checkpoint['state_dict'])
-        # optimizer.load_state_dict(checkpoint['optimizer'])
-        # scheduler.load_state_dict(checkpoint['scheduler'])
-        # logger.info("=> loaded checkpoint '{}' (epoch {})".format(resume, checkpoint['epoch']))
 
     save_model = Path(save_model)
     if not save_model.exists():
@@ -108,6 +101,8 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     centroids = torch.Tensor(centroids).float().to(Config.DEVICE)
 
     model.train()
+    if alternative_training:
+        model.freeze_feature_extraction()
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
         if alternative_training:
             loss = train_alternative(train_loader, model, criterion, miner, optimizer, epoch, centroids, batches)
