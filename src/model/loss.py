@@ -6,6 +6,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from src.config import Config
+
 
 def batch_get_similarity_matrix(ref, target):
     """
@@ -336,6 +338,8 @@ class MinTripletLoss(torch.nn.Module):
     def forward(self, anchor_points, positive_pool, negative_pool):
         positive_distances = distance_matrix(anchor_points, positive_pool)
         negative_distances = distance_matrix(anchor_points, negative_pool)
+        if negative_distances.numel() == 0 or positive_distances.numel() == 0:
+            return torch.tensor(1000000.0, device=Config.DEVICE)
         losses = F.relu(torch.min(positive_distances, 1)[0].sum() - torch.min(negative_distances, 1)[
             0].sum() + self._alpha)
         return losses.mean()
