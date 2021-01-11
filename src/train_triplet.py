@@ -119,7 +119,7 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
             positive_features, positive_labels = preprocess(*positive, model, centroids)
             negative_features, negative_labels = preprocess(*negative, model, centroids)
 
-            loss = torch.tensor(0.0)
+            loss = torch.tensor(0.0, device=Config.DEVICE)
             for label in torch.unique(labels):
                 positive_pool = positive_features[positive_labels == label]
                 negative_pool = negative_features[negative_labels != label]
