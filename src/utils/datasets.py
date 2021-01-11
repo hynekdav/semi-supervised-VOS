@@ -1,7 +1,6 @@
 # -*- encoding: utf-8 -*-
 # ! python3
-
-
+from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
 
@@ -144,3 +143,55 @@ class InferenceDataset(datasets.ImageFolder):
 
     def __len__(self):
         return len(self.imgs)
+
+
+class TripletLossTrainDataset(datasets.ImageFolder):
+    def __init__(self,
+                 img_root,
+                 annotation_root,
+                 transform=None,
+                 target_transform=None):
+        super(TripletLossTrainDataset, self).__init__(img_root,
+                                                      transform=transform,
+                                                      target_transform=target_transform)
+        annotations_data = make_dataset(annotation_root, self.class_to_idx, extensions=('png', 'jpg', 'jpeg'))
+        self.rgb_normalize = transforms.Compose([transforms.ToTensor(),
+                                                 transforms.Normalize(
+                                                     mean=[0.485, 0.456, 0.406],
+                                                     std=[0.229, 0.224, 0.225])])
+        self.annotation_convert = transforms.Compose([transforms.ToTensor()])
+        self.data = defaultdict(lambda: [])
+
+        assert len(self.imgs) == len(annotations_data)
+
+        logger.info(f'Loading {len(self.imgs)} train image, annotation pairs.')
+        for (image_path, image_sequence_idx), (annotation_path, annotation_sequence_idx) in tqdm(
+                zip(self.imgs, annotations_data), total=len(self.imgs)):
+            assert image_sequence_idx == annotation_sequence_idx
+            with Path(image_path).open(mode='rb') as f:
+                img = f.read()
+            with Path(annotation_path).open(mode='rb') as f:
+                annotation = f.read()
+
+            self.data[image_sequence_idx].append((img, annotation))
+
+        logger.info(f"Pairs loaded: {len(self.data)}.")
+
+    def __getitem__(self, index):
+        sequence = []
+
+        for img, annotation in self.data[index]:
+            img = Image.open(BytesIO(img))
+            img = self.rgb_normalize(img.convert('RGB'))
+
+            annotation = Image.open(BytesIO(annotation))
+            annotation = annotation.convert('RGB')
+            annotation = np.asarray(annotation).transpose((2, 0, 1))
+            annotation = torch.from_numpy(annotation.copy()).float()
+
+            sequence.append((img, annotation))
+
+        return sequence
+
+    def __len__(self):
+        return len(self.data)

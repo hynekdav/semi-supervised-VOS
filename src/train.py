@@ -14,7 +14,6 @@ from tqdm import tqdm
 
 from src.config import Config
 from src.model.loss import CrossEntropy, FocalLoss
-from src.model.optimizer import LARS
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.utils import color_to_class, load_model
@@ -76,7 +75,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
                                  Path(data) / 'Annotations/480p',
                                  frame_num=frame_num,
                                  color_jitter=cj)
-    #         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                                batch_size=bs,
                                                shuffle=False,

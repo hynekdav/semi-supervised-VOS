@@ -7,6 +7,7 @@ import click
 from src.inference import inference_command
 from src.train import train_command
 from src.evaluation import evaluation_command
+from src.train_triplet import train_triplet_command
 
 
 @click.group(name='cli')
@@ -17,5 +18,6 @@ def cli():
 cli.add_command(inference_command)
 cli.add_command(train_command)
 cli.add_command(evaluation_command)
+cli.add_command(train_triplet_command)
 
 cli()
