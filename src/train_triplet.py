@@ -49,8 +49,8 @@ def train_triplet_command(data, resume, save_model, epochs, bs, lr, wd):
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                                batch_size=bs,
                                                shuffle=True,
-                                               pin_memory=True,
-                                               num_workers=8,
+                                               pin_memory=False,
+                                               num_workers=4,
                                                drop_last=False)
     batches = math.ceil(len(train_dataset) / bs)
 
@@ -127,7 +127,7 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
                 if positive_pool.numel() == 0 or negative_pool.numel() == 0:
                     continue
                 used_labels += 1
-                loss += criterion(features[labels == label], positive_pool, negative_pool)
+                loss = loss + criterion(features[labels == label], positive_pool, negative_pool)
 
             loss = loss / max(used_labels, 1)
             mean_loss.append(loss.item())
