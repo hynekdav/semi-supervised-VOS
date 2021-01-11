@@ -87,6 +87,8 @@ def train_triplet_command(data, resume, save_model, epochs, bs, lr, wd):
 
 
 def preprocess(img_input, annotation_input, model, centroids):
+    img_input = img_input.to(Config.DEVICE)
+    annotation_input = annotation_input.to(Config.DEVICE)
     annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
                                                                   scale_factor=Config.SCALE,
                                                                   mode='bilinear',
