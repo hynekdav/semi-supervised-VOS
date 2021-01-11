@@ -3,6 +3,7 @@
 
 
 import torch
+from loguru import logger
 from torch import nn
 from torch.nn import functional as F
 
@@ -339,6 +340,7 @@ class MinTripletLoss(torch.nn.Module):
         positive_distances = distance_matrix(anchor_points, positive_pool)
         negative_distances = distance_matrix(anchor_points, negative_pool)
         if negative_distances.numel() == 0 or positive_distances.numel() == 0:
+            logger.warning('One of the distance matrices is empty!')
             return torch.tensor(1000000.0, device=Config.DEVICE)
         losses = F.relu(torch.min(positive_distances, 1)[0].sum() - torch.min(negative_distances, 1)[
             0].sum() + self._alpha)
