@@ -120,12 +120,16 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
             negative_features, negative_labels = preprocess(*negative, model, centroids)
 
             loss = torch.tensor(0.0, device=Config.DEVICE, requires_grad=True)
+            used_labels = 0
             for label in torch.unique(labels):
                 positive_pool = positive_features[positive_labels == label]
                 negative_pool = negative_features[negative_labels != label]
+                if positive_pool.numel() == 0 or negative_pool.numel() == 0:
+                    continue
+                used_labels += 1
                 loss += criterion(features[labels == label], positive_pool, negative_pool)
 
-            loss = loss / [*torch.unique(labels).size()][0]
+            loss = loss / max(used_labels, 1)
             mean_loss.append(loss.item())
             loss.backward()
 
