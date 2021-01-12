@@ -63,6 +63,39 @@ class CrossEntropy(nn.Module):
         return loss
 
 
+class MetricLoss(nn.Module):
+    def __init__(self, temperature=1.0):
+        super(MetricLoss, self).__init__()
+        self.temperature = temperature
+        self.nllloss = nn.NLLLoss()
+        self.embedding_loss = nn.CosineEmbeddingLoss()
+
+    def forward(self, ref, target, ref_label, target_label):
+        """
+        let Nt = num of target pixels, Nr = num of ref pixels
+        :param ref: (batchSize, num_ref, feature_dim, H, W)
+        :param target: (batchSize, feature_dim, H, W)
+        :param ref_label: label for reference pixels
+                         (batchSize, num_ref, d, H, W)
+        :param target_label: label for target pixels (ground truth)
+                            (batchSize, H, W)
+        """
+        global_similarity = batch_get_similarity_matrix(ref, target)
+        global_similarity = global_similarity * self.temperature
+        global_similarity = global_similarity.softmax(dim=1)
+
+        prediction = batch_global_predict(global_similarity, ref_label)
+        prediction = torch.log(prediction + 1e-14)
+        loss = self.nllloss(prediction, target_label)
+
+        prediction = prediction.softmax(dim=1).topk(k=1, dim=1).indices.squeeze(axis=1)
+        y = torch.ones(size=prediction.shape)
+        y[prediction != target_label] = -1
+        metric_loss = self.embedding_loss(ref[:, -1, :, :], target)
+
+        return loss + metric_loss
+
+
 class FocalLoss(nn.Module):
     def __init__(self, gamma=0.5, reduction='mean'):
         super(FocalLoss, self).__init__()
