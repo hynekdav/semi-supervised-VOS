@@ -91,7 +91,7 @@ class MetricLoss(nn.Module):
         prediction = prediction.softmax(dim=1).topk(k=1, dim=1).indices.squeeze(axis=1)
         y = torch.ones(size=prediction.shape)
         y[prediction != target_label] = -1
-        metric_loss = self.embedding_loss(ref[:, -1, :, :], target)
+        metric_loss = self.embedding_loss(ref[:, -1, :, :], target, y)
 
         return loss + metric_loss
 
