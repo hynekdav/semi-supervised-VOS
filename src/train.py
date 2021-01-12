@@ -101,7 +101,10 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
 
     model.train()
     if alternative_training:
-        model.freeze_feature_extraction()
+        if isinstance(model, nn.DataParallel):
+            model.module.freeze_feature_extraction()
+        else:
+            model.freeze_feature_extraction()
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
         if alternative_training:
             loss = train_alternative(train_loader, model, criterion, miner, optimizer, epoch, centroids, batches)
