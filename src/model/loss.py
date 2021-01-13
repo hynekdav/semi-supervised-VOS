@@ -67,7 +67,7 @@ class MetricLoss(nn.Module):
     def __init__(self, temperature=1.0):
         super(MetricLoss, self).__init__()
         self.temperature = temperature
-        self.nllloss = nn.NLLLoss()
+        # self.nllloss = nn.NLLLoss()
         self.embedding_loss = nn.CosineEmbeddingLoss()
 
     def forward(self, ref, target, ref_label, target_label):
@@ -86,14 +86,14 @@ class MetricLoss(nn.Module):
 
         prediction = batch_global_predict(global_similarity, ref_label)
         prediction = torch.log(prediction + 1e-14)
-        loss = self.nllloss(prediction, target_label)
+        # loss = self.nllloss(prediction, target_label)
 
         prediction = prediction.softmax(dim=1).topk(k=1, dim=1).indices.squeeze(axis=1)
         y = torch.ones(size=prediction.shape, device=Config.DEVICE)
         y[prediction != target_label] = -1
         metric_loss = self.embedding_loss(ref[:, -1, :, :], target, y)
 
-        return loss + metric_loss
+        return metric_loss
 
 
 class FocalLoss(nn.Module):
