@@ -63,12 +63,12 @@ class CrossEntropy(nn.Module):
         return loss
 
 
-class MetricLoss(nn.Module):
+class ContrastiveLoss(nn.Module):
     def __init__(self, temperature=1.0):
-        super(MetricLoss, self).__init__()
+        super(ContrastiveLoss, self).__init__()
         self.temperature = temperature
-        # self.nllloss = nn.NLLLoss()
-        self.embedding_loss = nn.CosineEmbeddingLoss()
+        self.nllloss = nn.NLLLoss()
+        self.contrastive_loss = nn.CosineEmbeddingLoss()
 
     def forward(self, ref, target, ref_label, target_label):
         """
@@ -86,14 +86,97 @@ class MetricLoss(nn.Module):
 
         prediction = batch_global_predict(global_similarity, ref_label)
         prediction = torch.log(prediction + 1e-14)
-        # loss = self.nllloss(prediction, target_label)
+        loss = self.nllloss(prediction, target_label)
 
         prediction = prediction.softmax(dim=1).topk(k=1, dim=1).indices.squeeze(axis=1)
         y = torch.ones(size=prediction.shape, device=Config.DEVICE)
         y[prediction != target_label] = -1
-        metric_loss = self.embedding_loss(ref[:, -1, :, :], target, y)
+        metric_loss = self.contrastive_loss(ref[:, -1, :, :], target, y)
 
-        return metric_loss
+        return loss + metric_loss
+
+
+class TripletLoss(nn.Module):
+    def __init__(self, temperature=1.0):
+        super(TripletLoss, self).__init__()
+        self.temperature = temperature
+        self.nllloss = nn.NLLLoss()
+        self.cosine_similarity = nn.CosineSimilarity(dim=-1)
+        self.triplet_loss = nn.TripletMarginWithDistanceLoss(distance_function=nn.CosineSimilarity())
+
+    def sample_patches(self, tensor):
+        size, stride = 3, 3
+        patches = tensor.unfold(2, size, stride).unfold(3, size, stride)
+        patches = patches.reshape(tensor.shape[0], tensor.shape[1], -1, size * size)
+        patches = patches.permute((0, 2, 3, 1))
+        return patches
+
+    def sample_patches_labels(self, tensor):
+        size, stride = 3, 3
+        patches = tensor.unfold(1, size, stride).unfold(2, size, stride)
+        patches = patches.reshape(tensor.shape[0], -1, size * size)
+        return patches
+
+    def get_anchor_positive_pairs(self, patches, labels):
+        anchors = patches[:, :, 4]  # anchor will always be 4-th element of 3x3 patch
+        anchors_labels = labels[:, :, 4]
+        similarity = self.cosine_similarity(anchors.unsqueeze(2), patches)
+        similarity[labels != anchors_labels.unsqueeze(2)] = -1
+        similarity[:, :, 4] = -1
+        indices = similarity.topk(k=9, dim=-1).indices[:, :, 0].reshape(similarity.shape[0] * similarity.shape[1])
+        temp_positives = patches.reshape(similarity.shape[0] * similarity.shape[1], 9, 256)
+        positives = torch.zeros(size=(similarity.shape[0] * similarity.shape[1], 256), device=Config.DEVICE)
+        for counter, (positive, index) in enumerate(zip(temp_positives, indices)):
+            positive = positive[index]
+            positives[counter] = positive
+        positives = positives.reshape(similarity.shape[0], similarity.shape[1], -1)
+        return anchors, anchors_labels, positives
+
+    def sample_negatives(self, tensor, labels, labels_to_omit):
+        tensor = tensor.reshape(tensor.shape[0], -1, 256)
+        labels = labels.reshape(labels.shape[0], -1)
+        labels_to_omit = labels_to_omit.reshape(labels_to_omit.shape[0], -1)
+        negatives = torch.zeros(size=(labels_to_omit.shape[0], labels_to_omit.shape[1], 256), device=Config.DEVICE)
+
+        for batch_idx, batch_labels in enumerate(labels_to_omit):
+            label_space = labels[batch_idx]
+            for label_idx, label in enumerate(labels_to_omit[batch_idx]):
+                feasible_features = tensor[batch_idx, label_space != label]
+                if feasible_features.numel() == 0:
+                    idx = torch.randint(high=tensor[batch_idx].shape[0], size=(1,), device=Config.DEVICE)
+                    negative = tensor[batch_idx][idx].squeeze()
+                else:
+                    idx = torch.randint(high=feasible_features.shape[0], size=(1,), device=Config.DEVICE)
+                    negative = feasible_features[idx].squeeze()
+                negatives[batch_idx, label_idx] = negative
+        return negatives
+
+    def forward(self, ref, target, ref_label, target_label):
+        """
+        let Nt = num of target pixels, Nr = num of ref pixels
+        :param ref: (batchSize, num_ref, feature_dim, H, W)
+        :param target: (batchSize, feature_dim, H, W)
+        :param ref_label: label for reference pixels
+                         (batchSize, num_ref, d, H, W)
+        :param target_label: label for target pixels (ground truth)
+                            (batchSize, H, W)
+        """
+        global_similarity = batch_get_similarity_matrix(ref, target)
+        global_similarity = global_similarity * self.temperature
+        global_similarity = global_similarity.softmax(dim=1)
+
+        prediction = batch_global_predict(global_similarity, ref_label)
+        prediction = torch.log(prediction + 1e-14)
+        loss = self.nllloss(prediction, target_label)
+
+        patches = self.sample_patches(target)
+        labels = self.sample_patches_labels(target_label)
+        anchors, anchors_labels, positives = self.get_anchor_positive_pairs(patches, labels)
+        negatives = self.sample_negatives(target, target_label, anchors_labels)
+
+        metric_loss = self.triplet_loss(anchors, positives, negatives)
+
+        return loss + metric_loss
 
 
 class FocalLoss(nn.Module):
@@ -204,9 +287,7 @@ class MinTripletLoss(torch.nn.Module):
     def forward(self, anchor_points, positive_pool, negative_pool):
         positive_distances = distance_matrix(anchor_points, positive_pool)
         negative_distances = distance_matrix(anchor_points, negative_pool)
-        if negative_distances.numel() == 0 or positive_distances.numel() == 0:
-            logger.warning('One of the distance matrices is empty!')
-            return torch.tensor(1000000.0, device=Config.DEVICE)
-        losses = F.relu(torch.min(positive_distances, 1)[0].sum() - torch.min(negative_distances, 1)[
-            0].sum() + self._alpha)
+        losses = F.relu(
+            torch.min(positive_distances, 1)[0].sum() - torch.min(negative_distances, 1)[0].sum() + self._alpha
+        )
         return losses.mean()

@@ -13,7 +13,7 @@ from torch.nn import functional as F
 from tqdm import tqdm
 
 from src.config import Config
-from src.model.loss import CrossEntropy, FocalLoss, MetricLoss
+from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLoss
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.utils import color_to_class, load_model
@@ -51,7 +51,9 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     elif loss == 'fl':
         criterion = FocalLoss().to(Config.DEVICE)
     elif loss == 'met':
-        criterion = MetricLoss(temperature=temperature).to(Config.DEVICE)
+        criterion = ContrastiveLoss(temperature=temperature).to(Config.DEVICE)
+    elif loss == 'tripl':
+        criterion = TripletLoss(temperature=temperature).to(Config.DEVICE)
     else:
         if loss == 'triplet':
             # todo prepsat to z triplet margin loss na klasickou triplet loss
