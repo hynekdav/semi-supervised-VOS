@@ -117,20 +117,23 @@ class TripletLoss(nn.Module):
         patches = patches.reshape(tensor.shape[0], -1, size * size)
         return patches
 
-    def get_anchor_positive_pairs(self, patches, labels):
+    def get_triplets(self, tensor, tensor_labels):
+        patches = self.sample_patches(tensor)
+        labels = self.sample_patches_labels(tensor_labels)
         anchors = patches[:, :, 4]  # anchor will always be 4-th element of 3x3 patch
         anchors_labels = labels[:, :, 4]
+
         similarity = self.cosine_similarity(anchors.unsqueeze(2), patches)
         similarity[labels != anchors_labels.unsqueeze(2)] = -1
         similarity[:, :, 4] = -1
-        indices = similarity.topk(k=9, dim=-1).indices[:, :, 0].reshape(similarity.shape[0] * similarity.shape[1])
-        temp_positives = patches.reshape(similarity.shape[0] * similarity.shape[1], 9, 256)
-        positives = torch.zeros(size=(similarity.shape[0] * similarity.shape[1], 256), device=Config.DEVICE)
-        for counter, (positive, index) in enumerate(zip(temp_positives, indices)):
-            positive = positive[index]
-            positives[counter] = positive
+        indices = similarity.argmax(dim=-1).reshape(similarity.shape[0] * similarity.shape[1])
+        patches = patches.reshape(similarity.shape[0] * similarity.shape[1], 9, 256)
+        positives = patches[torch.arange(patches.shape[0]), indices]
         positives = positives.reshape(similarity.shape[0], similarity.shape[1], -1)
-        return anchors, anchors_labels, positives
+
+        negatives = self.sample_negatives(tensor, tensor_labels, anchors_labels)
+
+        return anchors, positives, negatives
 
     def sample_negatives(self, tensor, labels, labels_to_omit):
         tensor = tensor.reshape(tensor.shape[0], -1, 256)
@@ -145,7 +148,7 @@ class TripletLoss(nn.Module):
                 if feasible_features.numel() == 0:
                     idx = torch.randint(high=tensor[batch_idx].shape[0], size=(1,), device=Config.DEVICE)
                     negative = tensor[batch_idx][idx].squeeze()
-                else:
+                else:  # todo: vypocitat cosine distance anchor -> feasible_features a vzit nejblizsi
                     idx = torch.randint(high=feasible_features.shape[0], size=(1,), device=Config.DEVICE)
                     negative = feasible_features[idx].squeeze()
                 negatives[batch_idx, label_idx] = negative
@@ -169,10 +172,7 @@ class TripletLoss(nn.Module):
         prediction = torch.log(prediction + 1e-14)
         loss = self.nllloss(prediction, target_label)
 
-        patches = self.sample_patches(target)
-        labels = self.sample_patches_labels(target_label)
-        anchors, anchors_labels, positives = self.get_anchor_positive_pairs(patches, labels)
-        negatives = self.sample_negatives(target, target_label, anchors_labels)
+        anchors, positives, negatives = self.get_triplets(target, target_label)
 
         metric_loss = self.triplet_loss(anchors, positives, negatives)
 
