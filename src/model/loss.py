@@ -131,27 +131,38 @@ class TripletLoss(nn.Module):
         positives = patches[torch.arange(patches.shape[0]), indices]
         positives = positives.reshape(similarity.shape[0], similarity.shape[1], -1)
 
-        negatives = self.sample_negatives(tensor, tensor_labels, anchors_labels)
+        negatives = self.sample_negatives(anchors, tensor, tensor_labels, anchors_labels)
 
         return anchors, positives, negatives
 
-    def sample_negatives(self, tensor, labels, labels_to_omit):
+    def batched_index_select(self, t, dim, inds):
+        dummy = inds.unsqueeze(2).expand(inds.size(0), inds.size(1), t.size(2))
+        out = t.gather(dim, dummy)  # b x e x f
+        return out
+
+    def sample_negatives(self, anchors, tensor, labels, labels_to_omit):
         tensor = tensor.reshape(tensor.shape[0], -1, 256)
         labels = labels.reshape(labels.shape[0], -1)
-        labels_to_omit = labels_to_omit.reshape(labels_to_omit.shape[0], -1)
-        negatives = torch.zeros(size=(labels_to_omit.shape[0], labels_to_omit.shape[1], 256), device=Config.DEVICE)
+        # labels_to_omit = labels_to_omit.reshape(labels_to_omit.shape[0], -1)
+        # negatives = torch.zeros(size=(labels_to_omit.shape[0], labels_to_omit.shape[1], 256), device=Config.DEVICE)
 
-        for batch_idx, batch_labels in enumerate(labels_to_omit):
-            label_space = labels[batch_idx]
-            for label_idx, label in enumerate(labels_to_omit[batch_idx]):
-                feasible_features = tensor[batch_idx, label_space != label]
-                if feasible_features.numel() == 0:
-                    idx = torch.randint(high=tensor[batch_idx].shape[0], size=(1,), device=Config.DEVICE)
-                    negative = tensor[batch_idx][idx].squeeze()
-                else:  # todo: vypocitat cosine distance anchor -> feasible_features a vzit nejblizsi
-                    idx = torch.randint(high=feasible_features.shape[0], size=(1,), device=Config.DEVICE)
-                    negative = feasible_features[idx].squeeze()
-                negatives[batch_idx, label_idx] = negative
+        dist = 1 - torch.cdist(F.normalize(anchors, p=1, dim=-1), F.normalize(tensor, p=1, dim=-1), p=2)
+        invalid = torch.cdist(labels_to_omit.unsqueeze(-1).float(), labels.unsqueeze(-1).float(), p=1).long() == 0
+        dist[invalid] = -1
+        max_indices = torch.argmax(dist, dim=-1)
+        negatives = self.batched_index_select(tensor, 1, max_indices)
+
+        # for batch_idx, batch_labels in enumerate(labels_to_omit):
+        #     label_space = labels[batch_idx]
+        #     for label_idx, label in enumerate(labels_to_omit[batch_idx]):
+        #         feasible_features = tensor[batch_idx, label_space != label]
+        #         if feasible_features.numel() == 0:
+        #             idx = torch.randint(high=tensor[batch_idx].shape[0], size=(1,), device=Config.DEVICE)
+        #             negative = tensor[batch_idx][idx].squeeze()
+        #         else:  # todo: vypocitat cosine distance anchor -> feasible_features a vzit nejblizsi
+        #             idx = torch.randint(high=feasible_features.shape[0], size=(1,), device=Config.DEVICE)
+        #             negative = feasible_features[idx].squeeze()
+        #         negatives[batch_idx, label_idx] = negative
         return negatives
 
     def forward(self, ref, target, ref_label, target_label):
