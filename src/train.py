@@ -7,9 +7,7 @@ import click
 import numpy as np
 import torch
 from loguru import logger
-from pytorch_metric_learning import losses, distances, miners
 from torch import nn
-from torch.nn import functional as F
 from tqdm import tqdm
 
 from src.config import Config
@@ -33,40 +31,24 @@ from src.utils.utils import color_to_class, load_model
 @click.option('--lr', type=float, default=0.02, help='initial learning rate')
 @click.option('--wd', type=float, default=3e-4, help='weight decay')
 @click.option('--cj', help='use color jitter')
-@click.option('--loss', type=click.STRING, default='ce',
-              help='Loss function to use (CrossEntropy, FocalLoss or Supervised Contrastive)')
-@click.option('--distance', type=click.STRING, default='cosine', help='Distance function (Cosine or L2).')
-def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, distance):
+@click.option('--loss', type=click.Choice(['cross_entropy', 'focal', 'contrastive', 'triplet']),
+              default='cross_entropy', help='Loss function to use.')
+def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss):
     logger.info('Training started.')
 
     model = VOSNet(model=model)
     model = model.to(Config.DEVICE)
 
-    distance = distances.CosineSimilarity() if distance == 'cosine' else distances.LpDistance(normalize_embeddings=True,
-                                                                                              power=2)
-
-    alternative_training = False
-    if loss == 'ce':
+    if loss == 'cross_entropy':
         criterion = CrossEntropy(temperature=temperature).to(Config.DEVICE)
-    elif loss == 'fl':
+    elif loss == 'focal':
         criterion = FocalLoss().to(Config.DEVICE)
-    elif loss == 'met':
+    elif loss == 'contrastive':
         criterion = ContrastiveLoss(temperature=temperature).to(Config.DEVICE)
-    elif loss == 'tripl':
+    elif loss == 'triplet':
         criterion = TripletLoss(temperature=temperature).to(Config.DEVICE)
     else:
-        if loss == 'triplet':
-            # todo prepsat to z triplet margin loss na klasickou triplet loss
-            criterion = losses.TripletMarginLoss(distance=distance, margin=0.01, triplets_per_anchor=256).to(
-                Config.DEVICE)
-            miner = None  # miners.TripletMarginMiner(type_of_triplets='hard')
-        else:
-            criterion = losses.ContrastiveLoss(distance=distance).to(Config.DEVICE)
-            # miner = miners.PairMarginMiner(pos_margin=0.1, neg_margin=0.9)
-            miner = miners.BatchEasyHardMiner()
-        alternative_training = True
-        frame_num = 1
-        bs = 1
+        raise RuntimeError('Invalid loss type.')
 
     optimizer = torch.optim.SGD(model.parameters(),
                                 lr=lr,
@@ -104,16 +86,9 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     centroids = torch.Tensor(centroids).float().to(Config.DEVICE)
 
     model.train()
-    if alternative_training:
-        if isinstance(model, nn.DataParallel):
-            model.module.freeze_feature_extraction()
-        else:
-            model.freeze_feature_extraction()
+    model.freeze_feature_extraction()
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
-        if alternative_training:
-            loss = train_alternative(train_loader, model, criterion, miner, optimizer, epoch, centroids, batches)
-        else:
-            loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
+        loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
         scheduler.step()
 
         checkpoint_name = 'checkpoint-epoch-{:03d}-{}.pth.tar'.format(epoch, loss)
@@ -125,39 +100,6 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
             'scheduler': scheduler.state_dict(),
         }, save_path)
     logger.info('Training finished.')
-
-
-def train_alternative(train_loader, model, criterion, miner, optimizer, epoch, centroids, batches):
-    mean_loss = []
-    for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
-                                                    total=batches):
-        img_input = img_input.to(Config.DEVICE).squeeze(0)
-        (batch_size, num_channels, H, W) = img_input.shape
-        annotation_input = annotation_input.reshape(-1, 3, H, W).to(Config.DEVICE)
-        annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
-                                                                      scale_factor=Config.SCALE,
-                                                                      mode='bilinear',
-                                                                      align_corners=False)
-
-        labels = color_to_class(annotation_input_downsample, centroids)
-        features = model(img_input)
-
-        features = features.reshape(-1, labels.shape[-1] * labels.shape[-2]).squeeze().permute(1, 0)
-        labels = labels.squeeze().reshape(labels.shape[-1] * labels.shape[-2])
-
-        features = F.normalize(features, p=2, dim=1)
-
-        if miner is not None:
-            miner_output = miner(features, labels)
-            loss = criterion(features, labels, miner_output)
-        else:
-            loss = criterion(features, labels)
-        mean_loss.append(loss.item())
-        loss.backward()
-
-        optimizer.step()
-        optimizer.zero_grad()
-    return np.array(mean_loss).mean()
 
 
 def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
