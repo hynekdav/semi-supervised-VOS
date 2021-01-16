@@ -1,0 +1,53 @@
+# -*- encoding: utf-8 -*-
+# ! python3
+
+
+from __future__ import annotations
+from __future__ import generator_stop
+import click
+from pathlib import Path
+
+import torch
+from tqdm import tqdm
+import os
+import json
+from tempfile import TemporaryDirectory
+from src.inference import inference_command_impl
+from src.evaluation import evaluation_command_impl
+
+
+def process_model(data, model_path):
+    with TemporaryDirectory(prefix=model_path.stem) as out_dir:
+        inference_command_impl(10, data, model_path, 'resnet50',
+                               1.0, 40, 8.0, 8.0, out_dir,
+                               torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'))
+    j_mean, f_mean = evaluation_command_impl(data / 'Annotations/480p', out_dir)
+    loss = str(model_path.stem).split('-')[-1]
+    return loss, j_mean, f_mean
+
+
+@click.command(name='prepare_charting_data')
+@click.option('--data', type=click.Path(exists=True, file_okay=False), help='Path to dataset.')
+@click.option('--models', type=click.Path(exists=True, file_okay=False), help='Path to dataset.')
+@click.option('--output', type=click.Path(exists=False, dir_okay=False), help='Path to save output to.')
+def prepare_charting_data_command(data, models, output):
+    original_level = os.environ.get('LOGURU_LEVEL')
+    os.environ['LOGURU_LEVEL'] = 'FATAL'
+    models = Path(models)
+    data = Path(data)
+
+    results = {}
+    models = list(models.glob('**/*.pth.tar'))
+    for model_path in tqdm(models, desc='Evaluating all models.'):
+        loss_type = model_path.stem.replace('.pth', '').replace('.tar', '')
+        loss, j_mean, f_mean = process_model(data, model_path)
+        if loss_type not in results:
+            results[loss_type] = {'loss': [], 'j_mean': [], 'f_mean': []}
+        results[loss_type]['loss'].append(loss)
+        results[loss_type]['j_mean'].append(j_mean)
+        results[loss_type]['f_mean'].append(f_mean)
+
+    with Path(output).open(mode='w') as out:
+        json.dump(results, out, indent=4)
+
+    os.environ['LOGURU_LEVEL'] = original_level or 'INFO'

@@ -28,6 +28,10 @@ def process_pair(gt, seg):
 @click.option('--computed_results', '-c', type=click.Path(file_okay=False, dir_okay=True), required=True,
               help='path to inference dataset folder')
 def evaluation_command(ground_truth, computed_results):
+    evaluation_command_impl(ground_truth, computed_results)
+
+
+def evaluation_command_impl(ground_truth, computed_results):
     computed = Path(computed_results)
     ground_truth = Path(ground_truth)
 
@@ -47,4 +51,7 @@ def evaluation_command(ground_truth, computed_results):
         scores = [p.get() for p in res]
         pbar.close()
     j, f = map(np.array, zip(*scores))
-    logger.info(f'Evaluated: j_mean={j.mean()}, f_mean={f.mean()}.')
+    j_mean = j.mean()
+    f_mean = f.mean()
+    logger.info(f'Evaluated: j_mean={j_mean}, f_mean={f_mean}.')
+    return j_mean, f_mean

@@ -37,6 +37,10 @@ from src.utils.utils import save_prediction, index_to_onehot, load_model
               help='path to save predictions')
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
 def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device):
+    inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device)
+
+
+def inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device):
     if Config.DEVICE.type != device:
         Config.DEVICE = torch.device(device)
     model = VOSNet(model=model)
