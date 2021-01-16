@@ -33,7 +33,8 @@ from src.utils.utils import color_to_class, load_model
 @click.option('--cj', help='use color jitter')
 @click.option('--loss', type=click.Choice(['cross_entropy', 'focal', 'contrastive', 'triplet']),
               default='cross_entropy', help='Loss function to use.')
-def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss):
+@click.option('--freeze/--no-freeze', default=True)
+def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, freeze):
     logger.info('Training started.')
 
     model = VOSNet(model=model)
@@ -86,7 +87,8 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     centroids = torch.Tensor(centroids).float().to(Config.DEVICE)
 
     model.train()
-    model.freeze_feature_extraction()
+    if freeze:
+        model.freeze_feature_extraction()
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
         loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
         scheduler.step()
