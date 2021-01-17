@@ -4,6 +4,9 @@
 
 from __future__ import annotations
 from __future__ import generator_stop
+
+import sys
+
 import click
 from pathlib import Path
 
@@ -14,6 +17,8 @@ import json
 from tempfile import TemporaryDirectory
 from src.inference import inference_command_impl
 from src.evaluation import evaluation_command_impl
+
+from loguru import logger
 
 
 def process_model(data, model_path):
@@ -32,7 +37,8 @@ def process_model(data, model_path):
 @click.option('--output', type=click.Path(exists=False, dir_okay=False), help='Path to save output to.')
 def prepare_charting_data_command(data, models, output):
     original_level = os.environ.get('LOGURU_LEVEL')
-    os.environ['LOGURU_LEVEL'] = 'FATAL'
+    logger.remove()
+    logger.add(sys.stderr, level='ERROR')
     models = Path(models)
     data = Path(data)
 
@@ -50,4 +56,5 @@ def prepare_charting_data_command(data, models, output):
     with Path(output).open(mode='w') as out:
         json.dump(results, out, indent=4)
 
-    os.environ['LOGURU_LEVEL'] = original_level or 'INFO'
+    logger.remove()
+    logger.add(sys.stderr, level=original_level or 'DEBUG')
