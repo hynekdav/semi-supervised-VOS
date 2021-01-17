@@ -21,7 +21,7 @@ def process_model(data, model_path):
         inference_command_impl(10, data, model_path, 'resnet50',
                                1.0, 40, 8.0, 8.0, out_dir,
                                torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'))
-    j_mean, f_mean = evaluation_command_impl(data / 'Annotations/480p', out_dir)
+        j_mean, f_mean = evaluation_command_impl(data / 'Annotations/480p', out_dir)
     loss = str(model_path.stem).split('-')[-1]
     return loss, j_mean, f_mean
 
