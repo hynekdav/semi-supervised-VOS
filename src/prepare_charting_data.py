@@ -5,20 +5,19 @@
 from __future__ import annotations
 from __future__ import generator_stop
 
+import json
+import os
 import sys
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import click
-from pathlib import Path
-
 import torch
-from tqdm import tqdm
-import os
-import json
-from tempfile import TemporaryDirectory
-from src.inference import inference_command_impl
-from src.evaluation import evaluation_command_impl
-
 from loguru import logger
+from tqdm import tqdm
+
+from src.evaluation import evaluation_command_impl
+from src.inference import inference_command_impl
 
 
 def process_model(data, model_path):
