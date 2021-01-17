@@ -44,6 +44,9 @@ def prepare_charting_data_command(data, models, output):
     results = {}
     models = list(models.glob('**/*.pth.tar'))
     for model_path in tqdm(models, desc='Evaluating all models.'):
+        logger.remove()
+        logger.add(sys.stderr, level='ERROR')
+
         loss_type = model_path.stem.replace('.pth', '').replace('.tar', '')
         loss, j_mean, f_mean = process_model(data, model_path)
         if loss_type not in results:
@@ -52,8 +55,9 @@ def prepare_charting_data_command(data, models, output):
         results[loss_type]['j_mean'].append(j_mean)
         results[loss_type]['f_mean'].append(f_mean)
 
+        logger.remove()
+        logger.add(sys.stderr, level=original_level or 'DEBUG')
+
     with Path(output).open(mode='w') as out:
         json.dump(results, out, indent=4)
 
-    logger.remove()
-    logger.add(sys.stderr, level=original_level or 'DEBUG')
