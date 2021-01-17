@@ -32,7 +32,7 @@ def process_model(data, model_path):
 
 @click.command(name='prepare_charting_data')
 @click.option('--data', type=click.Path(exists=True, file_okay=False), help='Path to dataset.', required=True)
-@click.option('--models', type=click.Path(exists=True, file_okay=False), help='Path to dataset.', required=True)
+@click.option('--models', type=click.Path(exists=True, file_okay=False), help='Path to models.', required=True)
 @click.option('--output', type=click.Path(exists=False, dir_okay=False), help='Path to save output to.',
               default='output.json')
 def prepare_charting_data_command(data, models, output):
