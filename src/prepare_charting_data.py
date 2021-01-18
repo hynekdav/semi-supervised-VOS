@@ -24,8 +24,8 @@ def process_model(data, model_path):
     with TemporaryDirectory(prefix=model_path.stem) as out_dir:
         inference_command_impl(10, data, model_path, 'resnet50',
                                1.0, 40, 8.0, 8.0, out_dir,
-                               torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'))
-        j_mean, f_mean = evaluation_command_impl(data / 'Annotations/480p', out_dir)
+                               torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'), True)
+        j_mean, f_mean = evaluation_command_impl(data / 'Annotations/480p', out_dir, True)
     loss = str(model_path.stem).split('-')[-1]
     return loss, j_mean, f_mean
 
@@ -41,15 +41,23 @@ def prepare_charting_data_command(data, models, output):
     logger.add(sys.stderr, level='ERROR')
     models = Path(models)
     data = Path(data)
+    output = Path(output)
 
-    results = {}
     models = list(models.glob('**/*.pth.tar'))
+    models.sort()
     for model_path in tqdm(models, desc='Evaluating all models.'):
         logger.remove()
         logger.add(sys.stderr, level='ERROR')
 
         loss_type = model_path.stem.replace('.pth', '').replace('.tar', '')
         loss, j_mean, f_mean = process_model(data, model_path)
+
+        if output.exists():
+            with output.open(mode='r') as out:
+                results = json.load(out)
+        else:
+            results = {}
+
         if loss_type not in results:
             results[loss_type] = {'loss': [], 'j_mean': [], 'f_mean': []}
         results[loss_type]['loss'].append(loss)
@@ -59,5 +67,5 @@ def prepare_charting_data_command(data, models, output):
         logger.remove()
         logger.add(sys.stderr, level=original_level or 'DEBUG')
 
-    with Path(output).open(mode='w') as out:
-        json.dump(results, out, indent=4)
+        with output.open(mode='w') as out:
+            json.dump(results, out, indent=4)

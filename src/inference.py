@@ -40,7 +40,8 @@ def inference_command(ref_num, data, resume, model, temperature, frame_range, si
     inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device)
 
 
-def inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device):
+def inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
+                           disable=False):
     if Config.DEVICE.type != device:
         Config.DEVICE = torch.device(device)
     model = VOSNet(model=model)
@@ -69,7 +70,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
     frame_idx = 0
     video_idx = 0
     with torch.no_grad():
-        for input, curr_video in tqdm(inference_loader, total=len(inference_dataset)):
+        for input, curr_video in tqdm(inference_loader, total=len(inference_dataset), disable=disable):
             curr_video = curr_video[0]
             if curr_video != last_video:
                 # save prediction

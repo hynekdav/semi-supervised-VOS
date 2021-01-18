@@ -31,7 +31,7 @@ def evaluation_command(ground_truth, computed_results):
     evaluation_command_impl(ground_truth, computed_results)
 
 
-def evaluation_command_impl(ground_truth, computed_results):
+def evaluation_command_impl(ground_truth, computed_results, disable=False):
     computed = Path(computed_results)
     ground_truth = Path(ground_truth)
 
@@ -44,7 +44,7 @@ def evaluation_command_impl(ground_truth, computed_results):
     assert len(ground_truth) == len(computed)
 
     logger.info(f'Staring evaluation on {total} pairs.')
-    pbar = tqdm(total=total)
+    pbar = tqdm(total=total, disable=disable)
     with Pool(Config.CPU_COUNT) as pool:
         res = [pool.apply_async(process_pair, args=(gt, seg,), callback=lambda _: pbar.update(1)) for gt, seg in
                list(zip(ground_truth, computed))]
