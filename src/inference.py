@@ -56,7 +56,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
     model.eval()
 
     data_dir = Path(data) / 'JPEGImages/480p'  # os.path.join(data, '/JPEGImages/480p')
-    inference_dataset = InferenceDataset(data_dir)
+    inference_dataset = InferenceDataset(data_dir, disable=disable)
     inference_loader = torch.utils.data.DataLoader(inference_dataset,
                                                    batch_size=1,
                                                    shuffle=False,

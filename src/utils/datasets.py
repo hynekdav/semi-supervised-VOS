@@ -118,7 +118,8 @@ class InferenceDataset(datasets.ImageFolder):
     def __init__(self,
                  root,
                  transform=None,
-                 target_transform=None):
+                 target_transform=None,
+                 disable=False):
         super(InferenceDataset, self).__init__(root,
                                                transform=transform,
                                                target_transform=target_transform)
@@ -128,7 +129,7 @@ class InferenceDataset(datasets.ImageFolder):
                                                      mean=[0.485, 0.456, 0.406],
                                                      std=[0.229, 0.224, 0.225])])
         logger.info(f'Loading {len(self.imgs)} inference images.')
-        for path, _ in tqdm(self.imgs):
+        for path, _ in tqdm(self.imgs, disable=disable):
             with Path(path).open(mode='rb') as f:
                 self.img_bytes.append(f.read())
         logger.info(f'Loaded {len(self.img_bytes)} inference images.')
