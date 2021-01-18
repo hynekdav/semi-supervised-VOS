@@ -26,7 +26,7 @@ def process_model(data, model_path):
                                1.0, 40, 8.0, 8.0, out_dir,
                                torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'), True)
         j_mean, f_mean = evaluation_command_impl(data / 'Annotations/480p', out_dir, True)
-    loss = str(model_path.stem).split('-')[-1]
+    loss = str(model_path.stem.replace('.pth', '').replace('.tar', '')).split('-')[-1]
     return loss, j_mean, f_mean
 
 
@@ -42,6 +42,7 @@ def prepare_charting_data_command(data, models, output):
     models = Path(models)
     data = Path(data)
     output = Path(output)
+    output.unlink(missing_ok=True)
 
     models = list(models.glob('**/*.pth.tar'))
     models.sort()
@@ -49,7 +50,7 @@ def prepare_charting_data_command(data, models, output):
         logger.remove()
         logger.add(sys.stderr, level='ERROR')
 
-        loss_type = model_path.stem.replace('.pth', '').replace('.tar', '')
+        loss_type = model_path.parent.stem
         loss, j_mean, f_mean = process_model(data, model_path)
 
         if output.exists():
