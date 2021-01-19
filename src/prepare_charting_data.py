@@ -26,7 +26,7 @@ def process_model(data, model_path):
                                1.0, 40, 8.0, 8.0, out_dir,
                                torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'), True)
         j_mean, f_mean = evaluation_command_impl(data / 'Annotations/480p', out_dir, True)
-    loss = str(model_path.stem.replace('.pth', '').replace('.tar', '')).split('-')[-1]
+    loss = float(str(model_path.stem.replace('.pth', '').replace('.tar', '')).split('-')[-1])
     return loss, j_mean, f_mean
 
 
