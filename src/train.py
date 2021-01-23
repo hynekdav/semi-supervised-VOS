@@ -140,7 +140,8 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches, 
                 2, ref_label.unsqueeze(2), 1)
 
             loss = criterion(ref, target, ref_label, target_label)
-            mean_loss.append(loss.item())
+            if not torch.isnan(loss):
+                mean_loss.append(loss.item())
         scaler.scale(loss).backward()
         # loss.backward()
 
