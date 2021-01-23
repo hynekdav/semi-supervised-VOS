@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from loguru import logger
 from torch import nn
+from torch.cuda.amp import GradScaler, autocast
 from tqdm import tqdm
 
 from src.config import Config
@@ -89,8 +90,9 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     model.train()
     if freeze:
         model.freeze_feature_extraction()
+    scaler = GradScaler()
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
-        loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
+        loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches, scaler)
         scheduler.step()
 
         checkpoint_name = 'checkpoint-epoch-{:03d}-{}.pth.tar'.format(epoch, loss)
@@ -104,7 +106,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     logger.info('Training finished.')
 
 
-def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
+def train(train_loader, model, criterion, optimizer, epoch, centroids, batches, scaler):
     # logger.info('Starting training epoch {}'.format(epoch))
     mean_loss = []
     for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
@@ -123,21 +125,24 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
 
         img_input = img_input.reshape(-1, num_channels, H, W).to(Config.DEVICE)
 
-        features = model(img_input)
-        feature_dim = features.shape[1]
-        features = features.reshape(batch_size, num_frames, feature_dim, H_d, W_d)
+        with autocast():
+            features = model(img_input)
+            feature_dim = features.shape[1]
+            features = features.reshape(batch_size, num_frames, feature_dim, H_d, W_d)
 
-        ref = features[:, 0:num_frames - 1, :, :, :]
-        target = features[:, -1, :, :, :]
-        ref_label = annotation_input[:, 0:num_frames - 1, :, :]
-        target_label = annotation_input[:, -1, :, :]
+            ref = features[:, 0:num_frames - 1, :, :, :]
+            target = features[:, -1, :, :, :]
+            ref_label = annotation_input[:, 0:num_frames - 1, :, :]
+            target_label = annotation_input[:, -1, :, :]
 
-        ref_label = torch.zeros(batch_size, num_frames - 1, centroids.shape[0], H_d, W_d).to(Config.DEVICE).scatter_(
-            2, ref_label.unsqueeze(2), 1)
+            ref_label = torch.zeros(batch_size, num_frames - 1, centroids.shape[0], H_d, W_d).to(
+                Config.DEVICE).scatter_(
+                2, ref_label.unsqueeze(2), 1)
 
-        loss = criterion(ref, target, ref_label, target_label)
-        mean_loss.append(loss.item())
-        loss.backward()
+            loss = criterion(ref, target, ref_label, target_label)
+            mean_loss.append(loss.item())
+        scaler.scale(loss).backward()
+        # loss.backward()
 
         optimizer.step()
         optimizer.zero_grad()
