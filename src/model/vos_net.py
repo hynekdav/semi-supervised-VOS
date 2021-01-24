@@ -9,7 +9,7 @@ from src.model.backbone.resnet import resnet18, resnet50, resnet101
 
 class VOSNet(nn.Module):
 
-    def __init__(self, model='resnet18'):
+    def __init__(self, model='resnet50'):
 
         super(VOSNet, self).__init__()
         self.model = model
