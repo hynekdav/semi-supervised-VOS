@@ -86,6 +86,47 @@ def sample_frames(frame_idx,
     return torch.Tensor(sample_idx).long().to(Config.DEVICE)
 
 
+def predict_eq7(ref,
+                target,
+                ref_label,
+                weight_dense,
+                weight_sparse,
+                frame_idx,
+                range,
+                ref_num, temp=None):
+    """
+    The Predict Function.
+    :param ref: (N, feature_dim, H, W)
+    :param target: (feature_dim, H, W)
+    :param ref_label: (d, N, H*W)
+    :param weight_dense: (H*W, H*W)
+    :param weight_sparse: (H*W, H*W)
+    :param frame_idx:
+    :return: (d, H, W)
+    """
+    # sample frames from history features
+    d = ref_label.shape[0]
+    sample_idx = sample_frames(frame_idx, range, ref_num)
+    ref_selected = ref.index_select(0, sample_idx)
+    ref_label_selected = ref_label.index_select(1, sample_idx).view(d, -1)
+    ref_label_selected = torch.argmax(ref_label_selected, dim=0).reshape(sample_idx.numel(), -1)
+
+    # get denominator sum
+    (num_ref, feature_dim, H, W) = ref_selected.shape
+    ref_selected = ref_selected.permute(0, 2, 3, 1).reshape(num_ref, -1, feature_dim)
+    target = target.reshape(-1, feature_dim).unsqueeze(0)
+    target = torch.cat(num_ref * [target])
+    denominator = torch.mul(ref_selected, target).exp().sum(dim=0).sum(dim=1)
+    f_i = target.squeeze()
+
+    prediction = torch.zeros(denominator.shape, device=Config.DEVICE)
+    for ref_embedding, ref_labels in zip(ref_selected, ref_label_selected):
+        prediction = prediction + torch.mul(ref_embedding, f_i).sum(dim=1) / denominator * ref_labels
+
+    prediction = prediction.view(-1, H * W)
+    return prediction
+
+
 def prepare_first_frame(curr_video,
                         save_prediction,
                         annotation,

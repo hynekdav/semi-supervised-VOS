@@ -13,7 +13,7 @@ from tqdm import tqdm
 from loguru import logger
 
 from src.config import Config
-from src.model.predict import predict, prepare_first_frame
+from src.model.predict import predict, prepare_first_frame, predict_eq7
 from src.model.vos_net import VOSNet
 from src.utils.datasets import InferenceDataset
 from src.utils.utils import save_prediction, index_to_onehot, load_model
@@ -52,7 +52,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
         model = load_model(model, resume)
 
     model = model.to(Config.DEVICE)
-    model = model.half()
+    # model = model.half()
     model.eval()
 
     data_dir = Path(data) / 'JPEGImages/480p'  # os.path.join(data, '/JPEGImages/480p')
@@ -105,7 +105,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
                 features = model(input)
             (_, feature_dim, H_d, W_d) = features.shape
             with torch.cuda.amp.autocast():
-                prediction = predict(feats_history,
+                prediction = predict_eq7(feats_history,
                                      features[0],
                                      label_history,
                                      weight_dense,
