@@ -117,7 +117,7 @@ def predict_eq7(ref,
     target = target.reshape(-1, feature_dim).unsqueeze(0)
     target = torch.cat(num_ref * [target])
     denominator = torch.mul(ref_selected, target).exp().sum(dim=0).sum(dim=1)
-    f_i = target.squeeze()
+    f_i = target.sum(dim=0)
 
     prediction = torch.zeros(denominator.shape, device=Config.DEVICE)
     for ref_embedding, ref_labels in zip(ref_selected, ref_label_selected):
