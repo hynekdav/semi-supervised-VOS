@@ -8,7 +8,6 @@ import numpy as np
 import torch
 from loguru import logger
 from torch import nn
-from torch.cuda.amp import GradScaler, autocast
 from tqdm import tqdm
 
 from src.config import Config
@@ -90,9 +89,8 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     model.train()
     if freeze:
         model.freeze_feature_extraction()
-    scaler = GradScaler()
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
-        loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches, scaler)
+        loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
         scheduler.step()
 
         checkpoint_name = 'checkpoint-epoch-{:03d}-{}.pth.tar'.format(epoch, loss)
@@ -106,7 +104,7 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     logger.info('Training finished.')
 
 
-def train(train_loader, model, criterion, optimizer, epoch, centroids, batches, scaler):
+def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
     # logger.info('Starting training epoch {}'.format(epoch))
     mean_loss = []
     for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
