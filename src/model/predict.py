@@ -123,7 +123,8 @@ def predict_eq7(ref,
     for ref_embedding, ref_labels in zip(ref_selected, ref_label_selected):
         prediction = prediction + torch.mul(ref_embedding, f_i).sum(dim=1) / denominator * ref_labels
 
-    prediction = prediction.view(-1, H * W)
+    prediction = prediction.view(-1, H * W).long()
+    prediction = index_to_onehot(prediction.view(-1), d)
     return prediction
 
 
