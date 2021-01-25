@@ -2,9 +2,9 @@
 # ! python3
 
 
-
 import click
 
+from src.visualization.distribution import distribution_command
 from src.visualization.heatmap import heatmap_command
 from src.visualization.overlay import overlay_command
 from src.visualization.prediction_only import prediction_only_command
@@ -20,5 +20,6 @@ cli.add_command(overlay_command)
 cli.add_command(side_by_side_command)
 cli.add_command(prediction_only_command)
 cli.add_command(heatmap_command)
+cli.add_command(distribution_command)
 
 cli()

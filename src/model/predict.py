@@ -126,7 +126,7 @@ def predict_eq7(ref,
         prediction = prediction + torch.bmm(target, reference_embedding.unsqueeze(-1)).squeeze().exp() \
                      / denominator * reference_labels
 
-    prediction = prediction.view(-1, H * W).long()
+    prediction = prediction.view(-1, H * W).floor().long()
     prediction = index_to_onehot(prediction.view(-1), d)
     return prediction
 
