@@ -60,7 +60,8 @@ def get_similarity_vector(features):
               help='Path to model checkpoint.')
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
 @click.option('--save/--no-save', default=False, help='Save the image or show it.')
-def distribution_command(image, annotation, checkpoint, device, save):
+@click.option('-s', '--save_path', help='Path to save image to.')
+def distribution_command(image, annotation, checkpoint, device, save, save_path):
     image_path = Path(image)
     model = set_device_and_load_model(checkpoint, device)
     annotation = Image.open(annotation).convert('RGB')
@@ -100,6 +101,6 @@ def distribution_command(image, annotation, checkpoint, device, save):
         ax[idx].title.set_text(f'Label: {idx}')
 
     if save:
-        fig.savefig(f'{image_path.parent.stem}_{image_path.stem.title()}-heatmap.jpg')
+        fig.savefig(str(Path(save_path).absolute() / f'{image_path.parent.stem}_{image_path.stem.title()}-distribution.jpg'))
     else:
         fig.show()
