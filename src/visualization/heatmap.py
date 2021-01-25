@@ -66,6 +66,10 @@ def get_similarity_matrix(features):
 @click.option('--save/--no-save', default=False, help='Save the image or show it.')
 @click.option('-s', '--save_path', help='Path to save image to.')
 def heatmap_command(image, annotation, checkpoint, device, save, save_path):
+    heatmap_command_impl(image, annotation, checkpoint, device, save, save_path)
+
+
+def heatmap_command_impl(image, annotation, checkpoint, device, save, save_path):
     image_path = Path(image)
     model = set_device_and_load_model(checkpoint, device)
     annotation = remove_black_alpha(Image.open(annotation).convert('RGBA'))

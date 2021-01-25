@@ -62,6 +62,10 @@ def get_similarity_vector(features):
 @click.option('--save/--no-save', default=False, help='Save the image or show it.')
 @click.option('-s', '--save_path', help='Path to save image to.')
 def distribution_command(image, annotation, checkpoint, device, save, save_path):
+    distribution_command_impl(image, annotation, checkpoint, device, save, save_path)
+
+
+def distribution_command_impl(image, annotation, checkpoint, device, save, save_path):
     image_path = Path(image)
     model = set_device_and_load_model(checkpoint, device)
     annotation = Image.open(annotation).convert('RGB')
@@ -101,6 +105,7 @@ def distribution_command(image, annotation, checkpoint, device, save, save_path)
         ax[idx].title.set_text(f'Label: {idx}')
 
     if save:
-        fig.savefig(str(Path(save_path).absolute() / f'{image_path.parent.stem}_{image_path.stem.title()}-distribution.jpg'))
+        fig.savefig(
+            str(Path(save_path).absolute() / f'{image_path.parent.stem}_{image_path.stem.title()}-distribution.jpg'))
     else:
         fig.show()
