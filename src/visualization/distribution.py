@@ -110,4 +110,4 @@ def distribution_command_impl(image, annotation, checkpoint, device, save, save_
         fig.savefig(str(save_path.absolute() / f'{image_path.parent.stem}_{image_path.stem.title()}-distribution.jpg'))
     else:
         fig.show()
-    fig.clear()
+    plt.close(fig)
