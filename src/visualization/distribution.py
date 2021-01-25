@@ -97,7 +97,7 @@ def distribution_command_impl(image, annotation, checkpoint, device, save, save_
         similarity = get_similarity_vector(features_tensor.index_select(0, labels))
         similarities.append(similarity)
 
-    colors = ['r', 'g', 'b']
+    colors = ['tab:blue', 'tab:red', 'tab:green', 'tab:orange', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray']
     fig, ax = plt.subplots(nrows=1, ncols=len(similarities), figsize=(len(similarities) * 8.1, 4.5))
     fig.suptitle(f'Similarity distributions - {image_path.parent.stem} frame: {image_path.stem.title()}')
     for idx, (similarity, color) in enumerate(zip(similarities, colors)):
