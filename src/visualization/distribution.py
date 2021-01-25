@@ -50,6 +50,12 @@ def get_similarity_vector(features):
     similarity = similarity[indices].flatten()
     return similarity
 
+def filter_labels(labels: torch.tensor):
+    labels = labels.numpy()
+    diff = np.diff(labels)
+    idx = np.where(diff != 1)[0][0] + 1
+    labels = labels[:idx]
+    return labels
 
 @click.command(name='distribution')
 @click.option('-i', '--image', type=click.Path(file_okay=True, dir_okay=False), required=True,
@@ -87,13 +93,11 @@ def distribution_command_impl(image, annotation, checkpoint, device, save, save_
     features_tensor: torch.Tensor = model(image_normalized).detach().cpu().squeeze().permute((1, 2, 0)).reshape(-1, 256)
     features_tensor = features_tensor[:annotation.shape[0]]
 
-    unique_labels = torch.unique(annotation)
+    unique_labels = filter_labels(torch.unique(annotation))
 
     similarities = []
     for label in unique_labels:
         labels = (annotation == label).nonzero(as_tuple=False).squeeze()
-        if labels.numel() <= 100:
-            continue
         similarity = get_similarity_vector(features_tensor.index_select(0, labels))
         similarities.append(similarity)
 
