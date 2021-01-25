@@ -101,3 +101,4 @@ def heatmap_command_impl(image, annotation, checkpoint, device, save, save_path)
         fig.savefig(str(save_path.absolute() / f'{image_path.parent.stem}_{image_path.stem.title()}-heatmap.jpg'))
     else:
         fig.show()
+    fig.clear()
