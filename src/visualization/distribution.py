@@ -104,9 +104,13 @@ def distribution_command_impl(image, annotation, checkpoint, device, save, save_
     colors = ['tab:blue', 'tab:red', 'tab:green', 'tab:orange', 'tab:purple', 'tab:brown', 'tab:pink', 'tab:gray']
     fig, ax = plt.subplots(nrows=1, ncols=len(similarities), figsize=(len(similarities) * 8.1, 4.5))
     fig.suptitle(f'Similarity distributions - {image_path.parent.stem} frame: {image_path.stem.title()}')
-    for idx, (similarity, color) in enumerate(zip(similarities, colors)):
-        ax[idx].hist(similarity, bins=100, density=False, color=color)
-        ax[idx].title.set_text(f'Label: {idx}')
+    if len(similarities) == 1:
+        ax.hist(similarities[0], bins=100, density=False, color=colors[0])
+        ax.title.set_text(f'Label: {0}')
+    else:
+        for idx, (similarity, color) in enumerate(zip(similarities, colors)):
+            ax[idx].hist(similarity, bins=100, density=False, color=color)
+            ax[idx].title.set_text(f'Label: {idx}')
 
     if save:
         save_path = Path(save_path)
