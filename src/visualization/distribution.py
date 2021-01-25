@@ -76,7 +76,6 @@ def distribution_command_impl(image, annotation, checkpoint, device, save, save_
                                                                   align_corners=False).to(Config.DEVICE)
     centroids = np.load("./annotation_centroids.npy")
     centroids = torch.Tensor(centroids).float().to(Config.DEVICE)
-    print(annotation_input_downsample.device, centroids.device)
     annotation = color_to_class(annotation_input_downsample, centroids).squeeze().reshape(-1).cpu()
 
     rgb_normalize = transforms.Compose([transforms.ToTensor(),
