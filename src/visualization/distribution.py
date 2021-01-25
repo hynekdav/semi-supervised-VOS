@@ -105,7 +105,8 @@ def distribution_command_impl(image, annotation, checkpoint, device, save, save_
         ax[idx].title.set_text(f'Label: {idx}')
 
     if save:
-        fig.savefig(
-            str(Path(save_path).absolute() / f'{image_path.parent.stem}_{image_path.stem.title()}-distribution.jpg'))
+        save_path = Path(save_path)
+        save_path.mkdir(exist_ok=True, parents=True)
+        fig.savefig(str(save_path.absolute() / f'{image_path.parent.stem}_{image_path.stem.title()}-distribution.jpg'))
     else:
         fig.show()

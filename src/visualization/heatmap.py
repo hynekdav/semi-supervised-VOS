@@ -96,6 +96,8 @@ def heatmap_command_impl(image, annotation, checkpoint, device, save, save_path)
     ax[2].title.set_text('Heatmap')
 
     if save:
-        fig.savefig(str(Path(save_path).absolute() / f'{image_path.parent.stem}_{image_path.stem.title()}-heatmap.jpg'))
+        save_path = Path(save_path)
+        save_path.mkdir(exist_ok=True, parents=True)
+        fig.savefig(str(save_path.absolute() / f'{image_path.parent.stem}_{image_path.stem.title()}-heatmap.jpg'))
     else:
         fig.show()
