@@ -111,17 +111,20 @@ def predict_eq7(ref,
     ref_label_selected = ref_label.index_select(1, sample_idx).view(d, -1)
     ref_label_selected = torch.argmax(ref_label_selected, dim=0).reshape(sample_idx.numel(), -1)
 
-    # get denominator sum
+    # get denominator
     (num_ref, feature_dim, H, W) = ref_selected.shape
     ref_selected = ref_selected.permute(0, 2, 3, 1).reshape(num_ref, -1, feature_dim)
-    target = target.reshape(-1, feature_dim).unsqueeze(0)
-    target = torch.cat(num_ref * [target])
-    denominator = torch.mul(ref_selected, target).exp().sum(dim=0).sum(dim=1)
-    f_i = target.sum(dim=0)
+    target = target.reshape(-1, feature_dim).unsqueeze(1)
+    denominator = torch.zeros(target.shape[0], device=Config.DEVICE)
+    for ref in ref_selected:
+        ref = ref.unsqueeze(-1)
+        res = torch.bmm(target, ref).squeeze().exp()
+        denominator = denominator + res
 
     prediction = torch.zeros(denominator.shape, device=Config.DEVICE)
-    for ref_embedding, ref_labels in zip(ref_selected, ref_label_selected):
-        prediction = prediction + torch.mul(ref_embedding, f_i).sum(dim=1) / denominator * ref_labels
+    for reference_embedding, reference_labels in zip(ref_selected, ref_label_selected):
+        prediction = prediction + torch.bmm(target, reference_embedding.unsqueeze(-1)).squeeze().exp() \
+                     / denominator * reference_labels
 
     prediction = prediction.view(-1, H * W).long()
     prediction = index_to_onehot(prediction.view(-1), d)
