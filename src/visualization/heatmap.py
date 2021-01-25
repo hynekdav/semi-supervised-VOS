@@ -63,7 +63,8 @@ def get_similarity_matrix(features):
 @click.option('-c', '--checkpoint', type=click.Path(file_okay=True, dir_okay=False), required=True,
               help='Path to model checkpoint.')
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
-def heatmap_command(image, annotation, checkpoint, device):
+@click.option('--save/--no-save', default=False, help='Save the image or show it.')
+def heatmap_command(image, annotation, checkpoint, device, save):
     image_path = Path(image)
     model = set_device_and_load_model(checkpoint, device)
     annotation = remove_black_alpha(Image.open(annotation).convert('RGBA'))
@@ -88,4 +89,8 @@ def heatmap_command(image, annotation, checkpoint, device):
     ax[2].imshow(annotation)
     ax[2].imshow(rescale(similarity * 255, 8), alpha=0.8)
     ax[2].title.set_text('Heatmap')
-    fig.show()
+
+    if save:
+        fig.savefig(f'{image_path.parent.stem}_{image_path.stem.title()}-heatmap.jpg')
+    else:
+        fig.show()

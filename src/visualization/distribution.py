@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from PIL import Image
-from skimage.transform import rescale
 from torchvision.transforms import transforms
 
 from src.config import Config
@@ -60,7 +59,8 @@ def get_similarity_vector(features):
 @click.option('-c', '--checkpoint', type=click.Path(file_okay=True, dir_okay=False), required=True,
               help='Path to model checkpoint.')
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
-def distribution_command(image, annotation, checkpoint, device):
+@click.option('--save/--no-save', default=False, help='Save the image or show it.')
+def distribution_command(image, annotation, checkpoint, device, save):
     image_path = Path(image)
     model = set_device_and_load_model(checkpoint, device)
     annotation = Image.open(annotation).convert('RGB')
@@ -99,4 +99,7 @@ def distribution_command(image, annotation, checkpoint, device):
         ax[idx].hist(similarity, bins=100, density=False, color=color)
         ax[idx].title.set_text(f'Label: {idx}')
 
-    fig.show()
+    if save:
+        fig.savefig(f'{image_path.parent.stem}_{image_path.stem.title()}-heatmap.jpg')
+    else:
+        fig.show()
