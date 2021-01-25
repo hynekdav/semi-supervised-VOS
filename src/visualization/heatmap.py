@@ -79,7 +79,7 @@ def heatmap_command_impl(image, annotation, checkpoint, device, save, save_path)
                                             mean=[0.485, 0.456, 0.406],
                                             std=[0.229, 0.224, 0.225])])
     image = Image.open(image).convert('RGB')
-    image_normalized = rgb_normalize(np.asarray(image)).unsqueeze(0)
+    image_normalized = rgb_normalize(np.asarray(image)).unsqueeze(0).to(Config.DEVICE)
     features_tensor: torch.Tensor = model(image_normalized).detach().cpu()
     similarity, idx = get_similarity_matrix(features_tensor)
     x, y = int((idx % features_tensor.shape[3]) * 8), int((idx / features_tensor.shape[3]) * 8)

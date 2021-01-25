@@ -46,7 +46,7 @@ def set_device_and_load_model(checkpoint, device):
 def get_similarity_vector(features):
     features_norm = torch.nn.functional.normalize(features, p=1, dim=1)
     similarity = 1 - torch.cdist(features_norm, features_norm, p=1).squeeze().detach().numpy()
-    indices = np.triu_indices(similarity.shape[0], k=-1)
+    indices = np.triu_indices(similarity.shape[0], k=1)
     similarity = similarity[indices].flatten()
     return similarity
 
@@ -83,7 +83,7 @@ def distribution_command_impl(image, annotation, checkpoint, device, save, save_
                                             mean=[0.485, 0.456, 0.406],
                                             std=[0.229, 0.224, 0.225])])
     image = Image.open(image).convert('RGB')
-    image_normalized = rgb_normalize(np.asarray(image)).unsqueeze(0)
+    image_normalized = rgb_normalize(np.asarray(image)).unsqueeze(0).to(Config.DEVICE)
     features_tensor: torch.Tensor = model(image_normalized).detach().cpu().squeeze().permute((1, 2, 0)).reshape(-1, 256)
     features_tensor = features_tensor[:annotation.shape[0]]
 
