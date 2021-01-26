@@ -46,7 +46,9 @@ def set_device_and_load_model(checkpoint, device):
 
 def get_similarity_matrix(features, x, y):
     (_, _, H, W) = features.shape
-    idx = np.round(x / 8 + y / 8 * W).astype(int)
+    x = np.round(x / 8).astype(int)
+    y = np.round(y / 8).astype(int)
+    idx = x + y * W
     features = features.reshape(256, -1).permute(1, 0)
     features_norm = torch.nn.functional.normalize(features, p=1, dim=1)
     similarity = 1 - torch.cdist(features_norm[idx].reshape(1, -1), features_norm, p=1).squeeze().detach()
