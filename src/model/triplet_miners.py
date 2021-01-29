@@ -62,7 +62,7 @@ class DefaultTripletMiner(BaseTripletMiner):
         tensor = tensor.reshape(tensor.shape[0], -1, 256)
         labels = labels.reshape(labels.shape[0], -1)
 
-        dist = 1 - torch.cdist(F.normalize(anchors, p=1, dim=-1), F.normalize(tensor, p=1, dim=-1), p=2)
+        dist = 1 - torch.cdist(F.normalize(anchors, p=2, dim=-1), F.normalize(tensor, p=2, dim=-1), p=2)
         invalid = torch.cdist(labels_to_omit.unsqueeze(-1).float(), labels.unsqueeze(-1).float(), p=1).long() == 0
         dist[invalid] = -1
         max_indices = torch.argmax(dist, dim=-1)

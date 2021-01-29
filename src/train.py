@@ -11,7 +11,7 @@ from torch import nn
 from tqdm import tqdm
 
 from src.config import Config
-from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLoss, TripletLossWithMiner
+from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLossWithMiner
 from src.model.triplet_miners import DefaultTripletMiner
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
