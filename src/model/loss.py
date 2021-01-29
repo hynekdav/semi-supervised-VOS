@@ -5,8 +5,10 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
+import numpy as np
 
 from src.config import Config
+from src.model.triplet_miners import BaseTripletMiner
 
 
 def batch_get_similarity_matrix(ref, target):
@@ -187,6 +189,38 @@ class TripletLoss(nn.Module):
         metric_loss = self.triplet_loss(anchors, positives, negatives)
 
         return loss + metric_loss
+
+
+class TripletLossWithMiner(nn.Module):
+    def __init__(self, miner: BaseTripletMiner, *, margin=1.0, weights=(0.25, 0.75), temperature=1.0):
+        super(TripletLossWithMiner, self).__init__()
+        assert np.allclose(np.sum(weights), np.ones(shape=(1,)))
+        assert len(weights) == 2
+        self._cross_entropy = CrossEntropy(temperature=temperature)
+        self._triplet_loss = nn.TripletMarginWithDistanceLoss(margin=margin, distance_function=nn.CosineSimilarity())
+        self._miner = miner
+        self._weights = weights
+
+    def forward(self, ref, target, ref_label, target_label, extra_embeddings=None, extra_labels=None):
+        """
+        let Nt = num of target pixels, Nr = num of ref pixels
+        :param ref: (batchSize, num_ref, feature_dim, H, W)
+        :param target: (batchSize, feature_dim, H, W)
+        :param ref_label: label for reference pixels
+                         (batchSize, num_ref, d, H, W)
+        :param target_label: label for target pixels (ground truth)
+                            (batchSize, H, W)
+        """
+        cross_entropy_loss = self._cross_entropy(ref, target, ref_label, target_label)
+
+        if extra_embeddings is not None and extra_labels is not None:
+            target = extra_embeddings
+            target_label = extra_labels
+        anchors, positives, negatives = self._miner.get_triplets(target, target_label)
+
+        metric_loss = self._triplet_loss(anchors, positives, negatives)
+
+        return cross_entropy_loss * self._weights[0] + metric_loss * self._weights[1]
 
 
 class FocalLoss(nn.Module):
