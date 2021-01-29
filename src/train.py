@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from src.config import Config
 from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLossWithMiner
-from src.model.triplet_miners import DefaultTripletMiner, get_miner
+from src.model.triplet_miners import get_miner
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.utils import color_to_class, load_model
@@ -25,20 +25,17 @@ from src.utils.utils import color_to_class, load_model
 @click.option('--save_model', '-m', type=click.Path(dir_okay=True, file_okay=False), default='./checkpoints',
               help='directory to save checkpoints')
 @click.option('--epochs', type=int, default=240, help='number of epochs')
-@click.option('--model', type=click.Choice(['resnet18', 'resnet50', 'resnet101']), default='resnet50',
-              help='network architecture, resnet18, resnet50 or resnet101')
-@click.option('--temperature', '-t', type=float, default=1.0, help='temperature parameter')
 @click.option('--bs', type=int, default=16, help='batch size')
 @click.option('--lr', type=float, default=0.02, help='initial learning rate')
-@click.option('--wd', type=float, default=3e-4, help='weight decay')
-@click.option('--cj', help='use color jitter')
 @click.option('--loss', type=click.Choice(['cross_entropy', 'focal', 'contrastive', 'triplet']),
               default='cross_entropy', help='Loss function to use.')
 @click.option('--freeze/--no-freeze', default=True)
 @click.option('--miner', type=click.Choice(['default']), default='default', help='Triplet loss miner.')
-def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, freeze, miner):
+def train_command(frame_num, data, resume, save_model, epochs, bs, lr, loss, freeze, miner):
     logger.info('Training started.')
 
+    temperature = 1.0
+    model = 'resnet50'
     model = VOSNet(model=model)
     model = model.to(Config.DEVICE)
 
@@ -60,13 +57,13 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
                                 lr=lr,
                                 momentum=0.9,
                                 nesterov=True,
-                                weight_decay=wd)
+                                weight_decay=3e-4)
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, eta_min=4e-5)
     train_dataset = TrainDataset(Path(data) / 'JPEGImages/480p',
                                  Path(data) / 'Annotations/480p',
                                  frame_num=frame_num,
-                                 color_jitter=cj)
+                                 color_jitter=False)
 
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                                batch_size=bs,
@@ -148,5 +145,3 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
         optimizer.step()
         optimizer.zero_grad()
     return np.array(mean_loss).mean()
-
-    # logger.info('Finished training epoch {}'.format(epoch))
