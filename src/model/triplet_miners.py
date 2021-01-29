@@ -11,6 +11,11 @@ from torch import nn
 import torch.nn.functional as F
 
 
+def get_miner(miner_name):
+    miners = {'default': DefaultTripletMiner}
+    return miners.get(miner_name)
+
+
 class BaseTripletMiner(ABC):
 
     @abstractmethod

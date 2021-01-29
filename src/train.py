@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from src.config import Config
 from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLossWithMiner
-from src.model.triplet_miners import DefaultTripletMiner
+from src.model.triplet_miners import DefaultTripletMiner, get_miner
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.utils import color_to_class, load_model
@@ -35,7 +35,8 @@ from src.utils.utils import color_to_class, load_model
 @click.option('--loss', type=click.Choice(['cross_entropy', 'focal', 'contrastive', 'triplet']),
               default='cross_entropy', help='Loss function to use.')
 @click.option('--freeze/--no-freeze', default=True)
-def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, freeze):
+@click.option('--miner', type=click.Choice(['default']), default='default', help='Triplet loss miner.')
+def train_command(frame_num, data, resume, save_model, epochs, model, temperature, bs, lr, wd, cj, loss, freeze, miner):
     logger.info('Training started.')
 
     model = VOSNet(model=model)
@@ -48,7 +49,9 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     elif loss == 'contrastive':
         criterion = ContrastiveLoss(temperature=temperature).to(Config.DEVICE)
     elif loss == 'triplet':
-        miner = DefaultTripletMiner()
+        miner = get_miner(miner)()
+        if miner is None:
+            raise RuntimeError('Invalid miner type.')
         criterion = TripletLossWithMiner(miner, temperature=temperature).to(Config.DEVICE)
     else:
         raise RuntimeError('Invalid loss type.')
