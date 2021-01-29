@@ -11,7 +11,8 @@ from torch import nn
 from tqdm import tqdm
 
 from src.config import Config
-from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLoss
+from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLoss, TripletLossWithMiner
+from src.model.triplet_miners import DefaultTripletMiner
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.utils import color_to_class, load_model
@@ -47,7 +48,8 @@ def train_command(frame_num, data, resume, save_model, epochs, model, temperatur
     elif loss == 'contrastive':
         criterion = ContrastiveLoss(temperature=temperature).to(Config.DEVICE)
     elif loss == 'triplet':
-        criterion = TripletLoss(temperature=temperature).to(Config.DEVICE)
+        miner = DefaultTripletMiner()
+        criterion = TripletLossWithMiner(miner, temperature=temperature).to(Config.DEVICE)
     else:
         raise RuntimeError('Invalid loss type.')
 
