@@ -98,10 +98,8 @@ class ContrastiveLoss(nn.Module):
 
 
 class TripletLossWithMiner(nn.Module):
-    def __init__(self, miner: BaseTripletMiner, *, margin=1.0, weights=(0.25, 0.75), temperature=1.0):
+    def __init__(self, miner: BaseTripletMiner, *, margin=1.0, weights=(0.25, 1.0), temperature=1.0):
         super(TripletLossWithMiner, self).__init__()
-        # assert np.allclose(np.sum(weights), np.ones(shape=(1,)))
-        # assert len(weights) == 2
         self._cross_entropy = CrossEntropy(temperature=temperature)
         self._triplet_loss = nn.TripletMarginWithDistanceLoss(margin=margin, distance_function=nn.CosineSimilarity())
         self._miner = miner
