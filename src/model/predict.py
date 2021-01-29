@@ -123,8 +123,8 @@ def predict_eq7(ref,
 
     prediction = torch.zeros(denominator.shape, device=Config.DEVICE)
     for reference_embedding, reference_labels in zip(ref_selected, ref_label_selected):
-        prediction = prediction + torch.bmm(target, reference_embedding.unsqueeze(-1)).squeeze().exp() \
-                     / denominator * reference_labels
+        prediction = prediction + (torch.bmm(target, reference_embedding.unsqueeze(-1)).squeeze().exp() \
+                     / denominator) * reference_labels
 
     prediction = prediction.view(-1, H * W).floor().long()
     prediction = index_to_onehot(prediction.view(-1), d)

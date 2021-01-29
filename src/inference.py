@@ -105,7 +105,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
                 features = model(input)
             (_, feature_dim, H_d, W_d) = features.shape
             with torch.cuda.amp.autocast():
-                prediction = predict_eq7(feats_history,
+                prediction = predict(feats_history,
                                      features[0],
                                      label_history,
                                      weight_dense,
