@@ -42,7 +42,7 @@ class CrossEntropy(nn.Module):
         self.temperature = temperature
         self.nllloss = nn.NLLLoss()
 
-    def forward(self, ref, target, ref_label, target_label):
+    def forward(self, ref, target, ref_label, target_label, _, __):
         """
         let Nt = num of target pixels, Nr = num of ref pixels
         :param ref: (batchSize, num_ref, feature_dim, H, W)
@@ -70,7 +70,7 @@ class ContrastiveLoss(nn.Module):
         self.nllloss = nn.NLLLoss()
         self.contrastive_loss = nn.CosineEmbeddingLoss()
 
-    def forward(self, ref, target, ref_label, target_label):
+    def forward(self, ref, target, ref_label, target_label, _, __):
         """
         let Nt = num of target pixels, Nr = num of ref pixels
         :param ref: (batchSize, num_ref, feature_dim, H, W)
@@ -114,7 +114,7 @@ class TripletLossWithMiner(nn.Module):
         :param target_label: label for target pixels (ground truth)
                             (batchSize, H, W)
         """
-        cross_entropy_loss = self._cross_entropy(ref, target, ref_label, target_label)
+        cross_entropy_loss = self._cross_entropy(ref, target, ref_label, target_label, None, None)
 
         if extra_embeddings is not None and extra_labels is not None:
             target = extra_embeddings
@@ -133,7 +133,7 @@ class FocalLoss(nn.Module):
         self.reduction = reduction
         self.nll_loss = nn.NLLLoss()
 
-    def forward(self, ref, target, ref_label, target_label):
+    def forward(self, ref, target, ref_label, target_label, _, __):
         """
         let Nt = num of target pixels, Nr = num of ref pixels
         :param ref: (batchSize, num_ref, feature_dim, H, W)

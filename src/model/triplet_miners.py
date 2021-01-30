@@ -13,11 +13,20 @@ import torch.nn.functional as F
 
 def get_miner(miner_name):
     miners = {'default': KernelMiner(3, 3),
-              'kernel_7x7': KernelMiner(7, 7)}
+              'kernel_7x7': KernelMiner(7, 7),
+              'temporal': TemporalMiner()}
     return miners.get(miner_name)
 
 
+def batched_index_select(t, dim, inds):
+    dummy = inds.unsqueeze(2).expand(inds.size(0), inds.size(1), t.size(2))
+    out = t.gather(dim, dummy)  # b x e x f
+    return out
+
+
 class AbstractTripletMiner(ABC):
+    def __init__(self):
+        self._cosine_similarity = nn.CosineSimilarity(dim=-1)
 
     @abstractmethod
     def get_triplets(self, embeddings, labels):
@@ -26,9 +35,9 @@ class AbstractTripletMiner(ABC):
 
 class KernelMiner(AbstractTripletMiner):
     def __init__(self, kernel_size=3, stride=3):
+        super().__init__()
         self._kernel_size = kernel_size
         self._stride = stride
-        self.cosine_similarity = nn.CosineSimilarity(dim=-1)
 
     def sample_patches(self, tensor):
         patches = tensor.unfold(2, self._kernel_size, self._stride).unfold(3, self._kernel_size, self._stride)
@@ -48,7 +57,7 @@ class KernelMiner(AbstractTripletMiner):
         anchors = patches[:, :, anchor_idx]
         anchors_labels = labels[:, :, anchor_idx]
 
-        similarity = self.cosine_similarity(anchors.unsqueeze(2), patches)
+        similarity = self._cosine_similarity(anchors.unsqueeze(2), patches)
         similarity[labels != anchors_labels.unsqueeze(2)] = -1
         similarity[:, :, anchor_idx] = -1
         indices = similarity.argmax(dim=-1).reshape(similarity.shape[0] * similarity.shape[1])
@@ -60,11 +69,6 @@ class KernelMiner(AbstractTripletMiner):
 
         return anchors, positives, negatives
 
-    def batched_index_select(self, t, dim, inds):
-        dummy = inds.unsqueeze(2).expand(inds.size(0), inds.size(1), t.size(2))
-        out = t.gather(dim, dummy)  # b x e x f
-        return out
-
     def sample_negatives(self, anchors, tensor, labels, labels_to_omit):
         tensor = tensor.reshape(tensor.shape[0], -1, 256)
         labels = labels.reshape(labels.shape[0], -1)
@@ -73,6 +77,39 @@ class KernelMiner(AbstractTripletMiner):
         invalid = torch.cdist(labels_to_omit.unsqueeze(-1).float(), labels.unsqueeze(-1).float(), p=1).long() == 0
         dist[invalid] = -1
         max_indices = torch.argmax(dist, dim=-1)
-        negatives = self.batched_index_select(tensor, 1, max_indices)
+        negatives = batched_index_select(tensor, 1, max_indices)
 
         return negatives
+
+
+class TemporalMiner(AbstractTripletMiner):
+    def get_triplets(self, embeddings, labels):
+        embeddings = embeddings.permute(0, 1, 3, 4, 2)
+        (batch_size, _, _, _, features_size) = embeddings.shape
+        last_frame_embeddings = embeddings[:, -1, ...].reshape(batch_size, -1, features_size)
+        last_frame_labels = labels[:, -1, ...].reshape(batch_size, -1)
+
+        candidate_embeddings = embeddings[:, 0:-1, ...].reshape(batch_size, -1, features_size)
+        candidate_labels = labels[:, 0:-1, ...].reshape(batch_size, -1)
+
+        similarity = 1 - torch.cdist(F.normalize(last_frame_embeddings, p=2, dim=-1),
+                                     F.normalize(candidate_embeddings, p=2, dim=-1), p=2)
+        indices_distances = torch.cdist(last_frame_labels.unsqueeze(-1).float(),
+                                        candidate_labels.unsqueeze(-1).float(), p=1).long()
+        same_labels = indices_distances == 0
+        different_labels = indices_distances != 0
+
+        negative_candidates = torch.clone(similarity)
+        negative_candidates[same_labels] = -1
+
+        positive_candidates = torch.clone(similarity)
+        positive_candidates[different_labels] = -1
+
+        negative_indices = torch.argmax(negative_candidates, dim=-1)
+        positive_indices = torch.argmax(positive_candidates, dim=-1)
+
+        negatives = batched_index_select(candidate_embeddings, 1, negative_indices)
+        positives = batched_index_select(candidate_embeddings, 1, positive_indices)
+        anchors = torch.clone(last_frame_embeddings)
+
+        return anchors, positives, negatives
