@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from src.config import Config
 from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLossWithMiner
-from src.model.triplet_miners import get_miner, TemporalMiner
+from src.model.triplet_miners import get_miner, TemporalMiner, OneBackOneAheadMiner
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.utils import color_to_class, load_model
@@ -30,8 +30,8 @@ from src.utils.utils import color_to_class, load_model
 @click.option('--loss', type=click.Choice(['cross_entropy', 'focal', 'contrastive', 'triplet']),
               default='cross_entropy', help='Loss function to use.')
 @click.option('--freeze/--no-freeze', default=True)
-@click.option('--miner', type=click.Choice(['default', 'kernel_7x7', 'temporal']), default='default',
-              help='Triplet loss miner.')
+@click.option('--miner', type=click.Choice(['default', 'kernel_7x7', 'temporal', 'one_back_one_ahead']),
+              default='default', help='Triplet loss miner.')
 @click.option('--margin', type=click.FloatRange(min=0.0, max=1.0), default=1.0, help='Triplet loss margin.')
 def train_command(frame_num, data, resume, save_model, epochs, bs, lr, loss, freeze, miner, margin):
     logger.info('Training started.')
@@ -137,9 +137,19 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
         target_label = annotation_input[:, -1, :, :]
 
         extra_embeddings, extra_labels = None, None
-        if hasattr(criterion, '_miner') and isinstance(criterion._miner, TemporalMiner):
-            extra_embeddings = features[:, -5:, :, :, :]
-            extra_labels = annotation_input[:, -5:, :, :]
+        if hasattr(criterion, '_miner'):
+            if isinstance(criterion._miner, TemporalMiner):
+                extra_embeddings = features[:, -5:, :, :, :]
+                extra_labels = annotation_input[:, -5:, :, :]
+            elif isinstance(criterion._miner, OneBackOneAheadMiner):
+                back_embedding = features[:, -3, :, :, :].unsqueeze(1)
+                back_labels = annotation_input[:, -3, :, :].unsqueeze(1)
+                ahead_embedding = features[:, -1, :, :, :].unsqueeze(1)
+                ahead_labels = annotation_input[:, -1, :, :].unsqueeze(1)
+                target_embedding = features[:, -2, :, :, :].unsqueeze(1)
+                target_labels = annotation_input[:, -2, :, :].unsqueeze(1)
+                extra_embeddings = torch.cat([back_embedding, ahead_embedding, target_embedding], dim=1)
+                extra_labels = torch.cat([back_labels, ahead_labels, target_labels], dim=1)
 
         ref_label = torch.zeros(batch_size, num_frames - 1, centroids.shape[0], H_d, W_d).to(
             Config.DEVICE).scatter_(

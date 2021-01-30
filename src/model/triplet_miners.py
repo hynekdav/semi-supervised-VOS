@@ -14,7 +14,8 @@ import torch.nn.functional as F
 def get_miner(miner_name):
     miners = {'default': KernelMiner(3, 3),
               'kernel_7x7': KernelMiner(7, 7),
-              'temporal': TemporalMiner()}
+              'temporal': TemporalMiner(),
+              'one_back_one_ahead': OneBackOneAheadMiner()}
     return miners.get(miner_name)
 
 
@@ -113,3 +114,12 @@ class TemporalMiner(AbstractTripletMiner):
         anchors = torch.clone(last_frame_embeddings)
 
         return anchors, positives, negatives
+
+
+class OneBackOneAheadMiner(AbstractTripletMiner):
+    def __init__(self):
+        super().__init__()
+        self.miner = TemporalMiner()
+
+    def get_triplets(self, embeddings, labels):
+        return self.miner.get_triplets(embeddings, labels)
