@@ -12,7 +12,8 @@ import torch.nn.functional as F
 
 
 def get_miner(miner_name):
-    miners = {'default': DefaultTripletMiner}
+    miners = {'default': KernelMiner(3, 3),
+              'kernel_7x7': KernelMiner(7, 7)}
     return miners.get(miner_name)
 
 
@@ -23,34 +24,35 @@ class AbstractTripletMiner(ABC):
         pass
 
 
-class DefaultTripletMiner(AbstractTripletMiner):
-    def __init__(self):
+class KernelMiner(AbstractTripletMiner):
+    def __init__(self, kernel_size=3, stride=3):
+        self._kernel_size = kernel_size
+        self._stride = stride
         self.cosine_similarity = nn.CosineSimilarity(dim=-1)
 
     def sample_patches(self, tensor):
-        size, stride = 3, 3
-        patches = tensor.unfold(2, size, stride).unfold(3, size, stride)
-        patches = patches.reshape(tensor.shape[0], tensor.shape[1], -1, size * size)
+        patches = tensor.unfold(2, self._kernel_size, self._stride).unfold(3, self._kernel_size, self._stride)
+        patches = patches.reshape(tensor.shape[0], tensor.shape[1], -1, self._kernel_size * self._kernel_size)
         patches = patches.permute((0, 2, 3, 1))
         return patches
 
     def sample_patches_labels(self, tensor):
-        size, stride = 3, 3
-        patches = tensor.unfold(1, size, stride).unfold(2, size, stride)
-        patches = patches.reshape(tensor.shape[0], -1, size * size)
+        patches = tensor.unfold(1, self._kernel_size, self._stride).unfold(2, self._kernel_size, self._stride)
+        patches = patches.reshape(tensor.shape[0], -1, self._kernel_size * self._kernel_size)
         return patches
 
     def get_triplets(self, tensor, tensor_labels):
+        anchor_idx = (self._kernel_size * self._kernel_size) // 2
         patches = self.sample_patches(tensor)
         labels = self.sample_patches_labels(tensor_labels)
-        anchors = patches[:, :, 4]  # anchor will always be 4-th element of 3x3 patch
-        anchors_labels = labels[:, :, 4]
+        anchors = patches[:, :, anchor_idx]
+        anchors_labels = labels[:, :, anchor_idx]
 
         similarity = self.cosine_similarity(anchors.unsqueeze(2), patches)
         similarity[labels != anchors_labels.unsqueeze(2)] = -1
-        similarity[:, :, 4] = -1
+        similarity[:, :, anchor_idx] = -1
         indices = similarity.argmax(dim=-1).reshape(similarity.shape[0] * similarity.shape[1])
-        patches = patches.reshape(similarity.shape[0] * similarity.shape[1], 9, 256)
+        patches = patches.reshape(similarity.shape[0] * similarity.shape[1], self._kernel_size * self._kernel_size, 256)
         positives = patches[torch.arange(patches.shape[0]), indices]
         positives = positives.reshape(similarity.shape[0], similarity.shape[1], -1)
 

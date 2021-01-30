@@ -30,7 +30,7 @@ from src.utils.utils import color_to_class, load_model
 @click.option('--loss', type=click.Choice(['cross_entropy', 'focal', 'contrastive', 'triplet']),
               default='cross_entropy', help='Loss function to use.')
 @click.option('--freeze/--no-freeze', default=True)
-@click.option('--miner', type=click.Choice(['default']), default='default', help='Triplet loss miner.')
+@click.option('--miner', type=click.Choice(['default', 'kernel_7x7']), default='default', help='Triplet loss miner.')
 @click.option('--margin', type=click.FloatRange(min=0.0, max=1.0), default=1.0, help='Triplet loss margin.')
 def train_command(frame_num, data, resume, save_model, epochs, bs, lr, loss, freeze, miner, margin):
     logger.info('Training started.')
@@ -47,7 +47,7 @@ def train_command(frame_num, data, resume, save_model, epochs, bs, lr, loss, fre
     elif loss == 'contrastive':
         criterion = ContrastiveLoss(temperature=temperature).to(Config.DEVICE)
     elif loss == 'triplet':
-        miner = get_miner(miner)()
+        miner = get_miner(miner)
         if miner is None:
             raise RuntimeError('Invalid miner type.')
         criterion = TripletLossWithMiner(miner, margin=margin, temperature=temperature).to(Config.DEVICE)
