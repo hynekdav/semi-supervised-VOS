@@ -16,14 +16,14 @@ def get_miner(miner_name):
     return miners.get(miner_name)
 
 
-class BaseTripletMiner(ABC):
+class AbstractTripletMiner(ABC):
 
     @abstractmethod
     def get_triplets(self, embeddings, labels):
         pass
 
 
-class DefaultTripletMiner(BaseTripletMiner):
+class DefaultTripletMiner(AbstractTripletMiner):
     def __init__(self):
         self.cosine_similarity = nn.CosineSimilarity(dim=-1)
 

@@ -5,10 +5,9 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-import numpy as np
 
 from src.config import Config
-from src.model.triplet_miners import BaseTripletMiner
+from src.model.triplet_miners import AbstractTripletMiner
 
 
 def batch_get_similarity_matrix(ref, target):
@@ -98,7 +97,7 @@ class ContrastiveLoss(nn.Module):
 
 
 class TripletLossWithMiner(nn.Module):
-    def __init__(self, miner: BaseTripletMiner, *, margin=1.0, weights=(0.25, 1.0), temperature=1.0):
+    def __init__(self, miner: AbstractTripletMiner, *, margin=1.0, weights=(0.25, 1.0), temperature=1.0):
         super(TripletLossWithMiner, self).__init__()
         self._cross_entropy = CrossEntropy(temperature=temperature)
         self._triplet_loss = nn.TripletMarginWithDistanceLoss(margin=margin, distance_function=nn.CosineSimilarity())
