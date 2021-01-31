@@ -147,8 +147,7 @@ def prepare_first_frame(curr_video,
     label_1hot = index_to_onehot(label.view(-1), d).reshape(1, d, H, W)
     label_1hot = torch.nn.functional.interpolate(label_1hot,
                                                  size=(H_d, W_d),
-                                                 mode='bilinear',
-                                                 align_corners=False)
+                                                 mode='nearest')
     label_1hot = label_1hot.reshape(d, -1).unsqueeze(1)
     weight_dense = get_spatial_weight((H_d, W_d), sigma1)
     weight_sparse = get_spatial_weight((H_d, W_d), sigma2)

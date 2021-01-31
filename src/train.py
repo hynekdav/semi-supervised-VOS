@@ -117,8 +117,7 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
         annotation_input = annotation_input.reshape(-1, 3, H, W).to(Config.DEVICE)
         annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
                                                                       scale_factor=Config.SCALE,
-                                                                      mode='bilinear',
-                                                                      align_corners=False)
+                                                                      mode='nearest')
         H_d = annotation_input_downsample.shape[-2]
         W_d = annotation_input_downsample.shape[-1]
 

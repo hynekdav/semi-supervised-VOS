@@ -125,8 +125,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
             # 1. upsample, 2. argmax
             prediction = torch.nn.functional.interpolate(prediction.view(1, d, H_d, W_d),
                                                          size=(H, W),
-                                                         mode='bilinear',
-                                                         align_corners=False)
+                                                         mode='nearest')
             prediction = torch.argmax(prediction, 1)  # (1, H, W)
 
             if frame_idx == 2:
