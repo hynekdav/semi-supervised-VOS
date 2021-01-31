@@ -4,18 +4,26 @@
 
 from __future__ import annotations
 from __future__ import generator_stop
+
+import functools
 from abc import ABC, abstractmethod
 
 import torch
 from torch import nn
 import torch.nn.functional as F
 
+from scipy import ndimage
+import numpy as np
+
 
 def get_miner(miner_name):
     miners = {'default': KernelMiner(3, 3),
               'kernel_7x7': KernelMiner(7, 7),
               'temporal': TemporalMiner(),
-              'one_back_one_ahead': OneBackOneAheadMiner()}
+              'one_back_one_ahead': OneBackOneAheadMiner(),
+              'euclidean': DistanceTransformationMiner(metric='euclidean'),
+              'manhattan': DistanceTransformationMiner(metric='manhattan'),
+              'chebyshev': DistanceTransformationMiner(metric='chessboard')}
     return miners.get(miner_name)
 
 
@@ -123,3 +131,40 @@ class OneBackOneAheadMiner(AbstractTripletMiner):
 
     def get_triplets(self, embeddings, labels):
         return self.miner.get_triplets(embeddings, labels)
+
+
+class DistanceTransformationMiner(AbstractTripletMiner):
+    def __init__(self, metric='euclidean'):
+        super().__init__()
+        available_metrics = {'euclidean', 'manhattan', 'taxicab', 'cityblock', 'chessboard'}
+        assert metric in available_metrics
+        self._distance_transformation = lambda n: n
+        if metric == 'euclidean':
+            self._distance_transformation = ndimage.distance_transform_edt
+        else:
+            self._distance_transformation = functools.partial(ndimage.distance_transform_cdt, metric=metric)
+
+    def get_triplets(self, batched_embeddings, batched_labels):
+        all_anchors, all_positives, all_negatives = [], [], []
+
+        for embeddings, labels in zip(batched_embeddings, batched_labels):
+
+            unique_labels = np.unique(labels.cpu().numpy())
+
+            anchors, positives, negatives = [], [], []
+            for label in unique_labels:
+                binary_mask = (labels == label).cpu().numpy().astype(np.int32)
+                distances, indices = self._distance_transformation(binary_mask, return_indices=True)
+                pixels_to_process = list(zip(*np.nonzero(distances)))
+                for i, j in pixels_to_process:
+                    anchors.append(embeddings[:, i, j])
+                    x, y = indices[:, i, j]
+                    negatives.append(embeddings[:, x, y])
+                    x, y = pixels_to_process[np.random.randint(low=0, high=len(pixels_to_process))]
+                    positives.append(embeddings[:, x, y])
+                pass
+            all_anchors.append(torch.stack(anchors))
+            all_positives.append(torch.stack(positives))
+            all_negatives.append(torch.stack(negatives))
+
+        return torch.stack(all_anchors), torch.stack(all_positives), torch.stack(all_negatives)

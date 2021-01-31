@@ -30,9 +30,10 @@ from src.utils.utils import color_to_class, load_model
 @click.option('--loss', type=click.Choice(['cross_entropy', 'focal', 'contrastive', 'triplet']),
               default='cross_entropy', help='Loss function to use.')
 @click.option('--freeze/--no-freeze', default=True)
-@click.option('--miner', type=click.Choice(['default', 'kernel_7x7', 'temporal', 'one_back_one_ahead']),
+@click.option('--miner', type=click.Choice(['default', 'kernel_7x7', 'temporal', 'one_back_one_ahead',
+                                            'euclidean', 'manhattan', 'chebyshev']),
               default='default', help='Triplet loss miner.')
-@click.option('--margin', type=click.FloatRange(min=0.0, max=1.0), default=1.0, help='Triplet loss margin.')
+@click.option('--margin', type=click.FloatRange(min=0.0, max=1.0), default=0.1, help='Triplet loss margin.')
 def train_command(frame_num, data, resume, save_model, epochs, bs, lr, loss, freeze, miner, margin):
     logger.info('Training started.')
 
