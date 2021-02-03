@@ -157,16 +157,12 @@ class DistanceTransformationMiner(AbstractTripletMiner):
                 binary_mask = (labels == label).cpu().numpy().astype(np.int32)
                 distances, indices = self._distance_transformation(binary_mask, return_indices=True)
                 pixels_to_process = list(zip(*np.nonzero(distances)))
-                positive_candidates = np.argwhere(np.isclose(distances, 0.0)).tolist()
                 for i, j in pixels_to_process:
                     anchors.append(embeddings[:, i, j])
                     x, y = indices[:, i, j]
                     negatives.append(embeddings[:, x, y])
-                    if len(positive_candidates) <= 1:
-                        x, y = i, j
-                    else:
-                        idx = np.random.randint(low=0, high=len(positive_candidates))
-                        x, y = positive_candidates[idx]
+                    idx = np.random.randint(low=0, high=len(pixels_to_process))
+                    x, y = pixels_to_process[idx]
                     positives.append(embeddings[:, x, y])
                 pass
             all_anchors.append(torch.stack(anchors))
