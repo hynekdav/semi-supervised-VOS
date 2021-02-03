@@ -134,7 +134,7 @@ class OneBackOneAheadMiner(AbstractTripletMiner):
 
 
 class DistanceTransformationMiner(AbstractTripletMiner):
-    def __init__(self, metric='euclidean'):
+    def __init__(self, metric='euclidean', margin=0.1):
         super().__init__()
         available_metrics = {'euclidean', 'manhattan', 'taxicab', 'cityblock', 'chessboard'}
         assert metric in available_metrics
@@ -143,6 +143,7 @@ class DistanceTransformationMiner(AbstractTripletMiner):
             self._distance_transformation = ndimage.distance_transform_edt
         else:
             self._distance_transformation = functools.partial(ndimage.distance_transform_cdt, metric=metric)
+        self._margin = margin
 
     def get_triplets(self, batched_embeddings, batched_labels):
         all_anchors, all_positives, all_negatives = [], [], []
@@ -156,11 +157,15 @@ class DistanceTransformationMiner(AbstractTripletMiner):
                 binary_mask = (labels == label).cpu().numpy().astype(np.int32)
                 distances, indices = self._distance_transformation(binary_mask, return_indices=True)
                 pixels_to_process = list(zip(*np.nonzero(distances)))
+                positive_candidates = np.argwhere(distances == 0)
                 for i, j in pixels_to_process:
                     anchors.append(embeddings[:, i, j])
                     x, y = indices[:, i, j]
                     negatives.append(embeddings[:, x, y])
-                    x, y = pixels_to_process[np.random.randint(low=0, high=len(pixels_to_process))]
+                    if len(positive_candidates) == 0:
+                        x, y = i, j
+                    else:
+                        x, y = pixels_to_process[np.random.randint(low=0, high=len(positive_candidates))]
                     positives.append(embeddings[:, x, y])
                 pass
             all_anchors.append(torch.stack(anchors))
