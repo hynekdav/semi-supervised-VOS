@@ -67,9 +67,9 @@ class KernelMiner(AbstractTripletMiner):
         anchors_labels = labels[:, :, anchor_idx]
 
         similarity = self._cosine_similarity(anchors.unsqueeze(2), patches)
-        similarity[labels != anchors_labels.unsqueeze(2)] = -1
-        similarity[:, :, anchor_idx] = -1
-        indices = similarity.argmax(dim=-1).reshape(similarity.shape[0] * similarity.shape[1])
+        similarity[labels != anchors_labels.unsqueeze(2)] = 10
+        similarity[:, :, anchor_idx] = 10
+        indices = similarity.argmin(dim=-1).reshape(similarity.shape[0] * similarity.shape[1])
         patches = patches.reshape(similarity.shape[0] * similarity.shape[1], self._kernel_size * self._kernel_size, 256)
         positives = patches[torch.arange(patches.shape[0]), indices]
         positives = positives.reshape(similarity.shape[0], similarity.shape[1], -1)
@@ -112,10 +112,10 @@ class TemporalMiner(AbstractTripletMiner):
         negative_candidates[same_labels] = -1
 
         positive_candidates = torch.clone(similarity)
-        positive_candidates[different_labels] = -1
+        positive_candidates[different_labels] = 10
 
         negative_indices = torch.argmax(negative_candidates, dim=-1)
-        positive_indices = torch.argmax(positive_candidates, dim=-1)
+        positive_indices = torch.argmin(positive_candidates, dim=-1)
 
         negatives = batched_index_select(candidate_embeddings, 1, negative_indices)
         positives = batched_index_select(candidate_embeddings, 1, positive_indices)
@@ -161,6 +161,7 @@ class DistanceTransformationMiner(AbstractTripletMiner):
                     anchors.append(embeddings[:, i, j])
                     x, y = indices[:, i, j]
                     negatives.append(embeddings[:, x, y])
+                    # todo: better way to pick positives
                     idx = np.random.randint(low=0, high=len(pixels_to_process))
                     x, y = pixels_to_process[idx]
                     positives.append(embeddings[:, x, y])
