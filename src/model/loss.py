@@ -100,7 +100,9 @@ class TripletLossWithMiner(nn.Module):
     def __init__(self, miner: AbstractTripletMiner, *, margin=1.0, weights=(0.25, 1.0), temperature=1.0):
         super(TripletLossWithMiner, self).__init__()
         self._cross_entropy = CrossEntropy(temperature=temperature)
-        self._triplet_loss = nn.TripletMarginWithDistanceLoss(margin=margin, distance_function=nn.CosineSimilarity())
+        self._cosine_similarity = nn.CosineSimilarity()
+        self._distance_function = lambda x1, x2: 1 - self._cosine_similarity(x1, x2)
+        self._triplet_loss = nn.TripletMarginWithDistanceLoss(margin=margin, distance_function=self._distance_function)
         self._miner = miner
         self._weights = weights
 
