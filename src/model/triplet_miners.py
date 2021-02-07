@@ -159,8 +159,11 @@ class DistanceTransformationMiner(AbstractTripletMiner):
                 pixels_to_process = list(zip(*np.nonzero(distances)))
 
                 distances = torch.from_numpy(distances).float()
-                positive_candidates = embeddings[:, torch.isclose(distances, torch.tensor(0.0))]
+                positive_candidates = embeddings[:, torch.logical_not(torch.isclose(distances, torch.tensor(0.0)))]
                 positive_candidates = positive_candidates.permute((1, 0))
+
+                normalized_embeddings = F.normalize(positive_candidates, dim=-1, p=2)
+                similarities = 1 - torch.cdist(normalized_embeddings, normalized_embeddings, p=2)
 
                 for idx, (i, j) in enumerate(pixels_to_process):
                     anchor = embeddings[:, i, j]
@@ -169,14 +172,12 @@ class DistanceTransformationMiner(AbstractTripletMiner):
                     negatives.append(embeddings[:, x, y])
 
                     if positive_candidates.numel() == 0:
-                        idx = np.random.randint(low=0, high=len(pixels_to_process))
-                        x, y = pixels_to_process[idx]
+                        positive_idx = np.random.randint(low=0, high=len(pixels_to_process))
+                        x, y = pixels_to_process[positive_idx]
                         positives.append(embeddings[:, x, y])
                     else:
-                        anchor = anchor.unsqueeze(0)
-                        similarities = self._cosine_similarity(anchor, positive_candidates)
-                        idx = torch.argmin(similarities, dim=0)
-                        positives.append(positive_candidates[idx])
+                        positive_idx = torch.argmin(similarities[idx], dim=0)
+                        positives.append(positive_candidates[positive_idx])
             all_anchors.append(torch.stack(anchors))
             all_positives.append(torch.stack(positives))
             all_negatives.append(torch.stack(negatives))
