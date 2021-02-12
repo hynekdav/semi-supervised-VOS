@@ -124,7 +124,7 @@ class TripletLossWithMiner(nn.Module):
 
         metric_loss = self._triplet_loss(anchors, positives, negatives)
 
-        return cross_entropy_loss * self._weights[0] + metric_loss * self._weights[1]
+        return (cross_entropy_loss * self._weights[0] + metric_loss * self._weights[1]) / sum(self._weights)
 
 
 class FocalLoss(nn.Module):
