@@ -83,7 +83,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
                     # torch.cuda.empty_cache()
 
                 frame_idx = 0
-                logger.info("End of video %d. Processing a new annotation...\n" % (video_idx + 1))
+                # logger.info("End of video %d. Processing a new annotation...\n" % (video_idx + 1))
                 video_idx += 1
             if frame_idx == 0:
                 input = input.to(Config.DEVICE)
