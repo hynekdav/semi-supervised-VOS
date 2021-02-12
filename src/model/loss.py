@@ -97,7 +97,7 @@ class ContrastiveLoss(nn.Module):
 
 
 class TripletLossWithMiner(nn.Module):
-    def __init__(self, miner: AbstractTripletMiner, *, margin=1.0, weights=(0.25, 1.0), temperature=1.0):
+    def __init__(self, miner: AbstractTripletMiner, *, margin=1.0, weights=(1.0, 1.0), temperature=1.0):
         super(TripletLossWithMiner, self).__init__()
         self._cross_entropy = CrossEntropy(temperature=temperature)
         self._cosine_similarity = nn.CosineSimilarity()
