@@ -13,6 +13,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from scipy import ndimage
+from skimage.morphology import skeletonize
 import numpy as np
 
 
@@ -23,7 +24,8 @@ def get_miner(miner_name):
               'one_back_one_ahead': OneBackOneAheadMiner(),
               'euclidean': DistanceTransformationMiner(metric='euclidean'),
               'manhattan': DistanceTransformationMiner(metric='manhattan'),
-              'chebyshev': DistanceTransformationMiner(metric='chessboard')}
+              'chebyshev': DistanceTransformationMiner(metric='chessboard'),
+              'skeleton': SkeletonMiner()}
     return miners.get(miner_name)
 
 
@@ -183,3 +185,50 @@ class DistanceTransformationMiner(AbstractTripletMiner):
             all_negatives.append(torch.stack(negatives))
 
         return torch.stack(all_anchors), torch.stack(all_positives), torch.stack(all_negatives)
+
+
+class SkeletonMiner(AbstractTripletMiner):
+    def get_triplets(self, batched_embeddings, batched_labels):
+        all_anchors, all_positives, all_negatives = [], [], []
+
+        for embeddings, labels in zip(batched_embeddings, batched_labels):
+
+            unique_labels = np.unique(labels.cpu().numpy())
+            anchors, positives, negatives = [], [], []
+            for label in unique_labels:
+                binary_mask = (labels == label).cpu().numpy().astype(np.int32)
+                skeleton = skeletonize(binary_mask).astype(np.uint8)
+
+                current_anchors = embeddings[:, skeleton == 1]
+                current_anchors = current_anchors.permute((1, 0))
+
+                positive_candidates = embeddings[:, binary_mask == 1]
+                positive_candidates = positive_candidates.permute((1, 0))
+
+                negative_candidates = embeddings[:, binary_mask == 0]
+                negative_candidates = negative_candidates.permute((1, 0))
+
+                if positive_candidates.numel() == 0 \
+                        or negative_candidates.numel() == 0 \
+                        or current_anchors.numel() == 0:
+                    continue
+
+                normalized_anchors = F.normalize(current_anchors, dim=-1, p=2)
+                normalized_positives = F.normalize(positive_candidates, dim=-1, p=2)
+                normalized_negatives = F.normalize(negative_candidates, dim=-1, p=2)
+
+                positive_similarities = 1 - torch.cdist(normalized_anchors, normalized_positives, p=2)
+                negative_similarities = 1 - torch.cdist(normalized_anchors, normalized_negatives, p=2)
+
+                current_positives = positive_candidates[torch.argmin(positive_similarities, dim=-1)]
+                current_negatives = negative_candidates[torch.argmin(negative_similarities, dim=-1)]
+
+                anchors.append(current_anchors)
+                positives.append(current_positives)
+                negatives.append(current_negatives)
+
+            all_anchors.append(torch.cat(anchors))
+            all_positives.append(torch.cat(positives))
+            all_negatives.append(torch.cat(negatives))
+
+        return torch.cat(all_anchors), torch.cat(all_positives), torch.cat(all_negatives)

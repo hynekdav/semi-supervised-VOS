@@ -31,7 +31,7 @@ from src.utils.utils import color_to_class, load_model
               default='cross_entropy', help='Loss function to use.')
 @click.option('--freeze/--no-freeze', default=True)
 @click.option('--miner', type=click.Choice(['default', 'kernel_7x7', 'temporal', 'one_back_one_ahead',
-                                            'euclidean', 'manhattan', 'chebyshev']),
+                                            'euclidean', 'manhattan', 'chebyshev', 'skeleton']),
               default='default', help='Triplet loss miner.')
 @click.option('--margin', type=click.FloatRange(min=0.0, max=1.0), default=0.1, help='Triplet loss margin.')
 @click.option('--loss_weight', type=click.FloatRange(min=0.0), default=1.0, help='Weight of triplet loss.')
