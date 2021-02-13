@@ -144,12 +144,12 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
                 extra_embeddings = features[:, -5:, :, :, :]
                 extra_labels = annotation_input[:, -5:, :, :]
             elif isinstance(criterion._miner, OneBackOneAheadMiner):
-                back_embedding = features[:, -3, :, :, :].unsqueeze(1)
-                back_labels = annotation_input[:, -3, :, :].unsqueeze(1)
-                ahead_embedding = features[:, -1, :, :, :].unsqueeze(1)
-                ahead_labels = annotation_input[:, -1, :, :].unsqueeze(1)
-                target_embedding = features[:, -2, :, :, :].unsqueeze(1)
-                target_labels = annotation_input[:, -2, :, :].unsqueeze(1)
+                back_embedding = features[:, -5:-3, :, :, :]  # .unsqueeze(1)
+                back_labels = annotation_input[:, -5:-3, :, :]  # .unsqueeze(1)
+                ahead_embedding = features[:, -2:, :, :, :]  # .unsqueeze(1)
+                ahead_labels = annotation_input[:, -2:, :, :]  # .unsqueeze(1)
+                target_embedding = features[:, -3, :, :, :].unsqueeze(1)
+                target_labels = annotation_input[:, -3, :, :].unsqueeze(1)
                 extra_embeddings = torch.cat([back_embedding, ahead_embedding, target_embedding], dim=1)
                 extra_labels = torch.cat([back_labels, ahead_labels, target_labels], dim=1)
 
