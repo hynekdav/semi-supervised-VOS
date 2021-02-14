@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from loguru import logger
 from torch import nn
+from torch.nn import DataParallel
 from tqdm import tqdm
 
 from src.config import Config
@@ -95,7 +96,10 @@ def train_command(frame_num, data, resume, save_model, epochs, bs, lr, loss, fre
 
     model.train()
     if freeze:
-        model.freeze_feature_extraction()
+        if isinstance(model, DataParallel):
+            model.module.freeze_feature_extraction()
+        else:
+            model.freeze_feature_extraction()
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
         loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
         scheduler.step()
