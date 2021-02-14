@@ -221,7 +221,7 @@ class SkeletonMiner(AbstractTripletMiner):
                 negative_similarities = 1 - torch.cdist(normalized_anchors, normalized_negatives, p=2)
 
                 current_positives = positive_candidates[torch.argmin(positive_similarities, dim=-1)]
-                current_negatives = negative_candidates[torch.argmin(negative_similarities, dim=-1)]
+                current_negatives = negative_candidates[torch.argmax(negative_similarities, dim=-1)]
 
                 anchors.append(current_anchors)
                 positives.append(current_positives)
