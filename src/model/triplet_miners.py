@@ -227,8 +227,11 @@ class SkeletonMiner(AbstractTripletMiner):
                 positives.append(current_positives)
                 negatives.append(current_negatives)
 
-            all_anchors.append(torch.cat(anchors))
-            all_positives.append(torch.cat(positives))
-            all_negatives.append(torch.cat(negatives))
+            if len(anchors) != 0:
+                all_anchors.append(torch.cat(anchors))
+                all_positives.append(torch.cat(positives))
+                all_negatives.append(torch.cat(negatives))
 
-        return torch.cat(all_anchors), torch.cat(all_positives), torch.cat(all_negatives)
+        if len(all_anchors) != 0:
+            return torch.cat(all_anchors), torch.cat(all_positives), torch.cat(all_negatives)
+        return torch.tensor([]), torch.tensor([]), torch.tensor([])

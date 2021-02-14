@@ -122,7 +122,10 @@ class TripletLossWithMiner(nn.Module):
             target_label = extra_labels
         anchors, positives, negatives = self._miner.get_triplets(target, target_label)
 
-        metric_loss = self._triplet_loss(anchors, positives, negatives)
+        if anchors.numel() != 0:
+            metric_loss = self._triplet_loss(anchors, positives, negatives)
+        else:
+            metric_loss = 0
 
         return (cross_entropy_loss * self._weights[0] + metric_loss * self._weights[1]) / sum(self._weights)
 
