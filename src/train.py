@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 # ! python3
+import json
 import math
 from pathlib import Path
 
@@ -15,7 +16,7 @@ from src.config import Config
 from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLossWithMiner
 from src.model.triplet_miners import get_miner, TemporalMiner, OneBackOneAheadMiner
 from src.model.vos_net import VOSNet
-from src.utils.datasets import TrainDataset
+from src.utils.datasets import TrainDataset, InferenceDataset
 from src.utils.utils import color_to_class, load_model
 
 
@@ -167,4 +168,128 @@ def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
 
         optimizer.step()
         optimizer.zero_grad()
+    return np.array(mean_loss).mean()
+
+
+@click.command(name='validation')
+@click.option('--data', '-d', type=click.Path(file_okay=False, dir_okay=True), required=True, help='path to dataset')
+@click.option('--checkpoints', '-c', type=click.Path(dir_okay=True, file_okay=False), help='Path to checkpoints.')
+@click.option('--bs', type=int, default=16, help='batch size')
+@click.option('--loss', type=click.Choice(['cross_entropy', 'focal', 'contrastive', 'triplet']),
+              default='cross_entropy', help='Loss function to use.')
+@click.option('--miner', type=click.Choice(['default', 'kernel_7x7', 'temporal', 'one_back_one_ahead',
+                                            'euclidean', 'manhattan', 'chebyshev', 'skeleton']),
+              default='default', help='Triplet loss miner.')
+@click.option('--margin', type=click.FloatRange(min=0.0, max=1.0), default=0.1, help='Triplet loss margin.')
+@click.option('--loss_weight', type=click.FloatRange(min=0.0), default=6.0, help='Weight of triplet loss.')
+@click.option('--output', '-o', type=click.Path(dir_okay=False, file_okay=True), help='Path to output JSON.')
+def validation_command(data, checkpoints, bs, loss, miner, margin, loss_weight, output):
+    logger.info('Validation started.')
+
+    temperature = 1.0
+
+    if loss == 'cross_entropy':
+        criterion = CrossEntropy(temperature=temperature).to(Config.DEVICE)
+    elif loss == 'focal':
+        criterion = FocalLoss().to(Config.DEVICE)
+    elif loss == 'contrastive':
+        criterion = ContrastiveLoss(temperature=temperature).to(Config.DEVICE)
+    elif loss == 'triplet':
+        miner = get_miner(miner)
+        if miner is None:
+            raise RuntimeError('Invalid miner type.')
+        criterion = TripletLossWithMiner(miner, margin=margin, temperature=temperature, weights=(1.0, loss_weight)) \
+            .to(Config.DEVICE)
+    else:
+        raise RuntimeError('Invalid loss type.')
+
+    validation_dataset = TrainDataset(Path(data) / 'JPEGImages/480p',
+                                      Path(data) / 'Annotations/480p',
+                                      frame_num=10,
+                                      color_jitter=False)
+
+    validation_loader = torch.utils.data.DataLoader(validation_dataset,
+                                                    batch_size=bs,
+                                                    shuffle=False,
+                                                    pin_memory=True,
+                                                    num_workers=8,
+                                                    drop_last=True)
+    batches = math.ceil(len(validation_dataset) / bs)
+
+    centroids = np.load("./annotation_centroids.npy")
+    centroids = torch.Tensor(centroids).float().to(Config.DEVICE)
+
+    checkpoints = list(Path(checkpoints).glob('*.pth.tar'))
+    checkpoints.sort()
+
+    losses = {}
+    for checkpoint in tqdm(checkpoints, desc=f'Validating checkpoints: '):
+        loss = validate(validation_loader, checkpoint, criterion, centroids, batches)
+        losses[checkpoint.name] = loss
+
+    with Path(output).open(mode='w') as writer:
+        json.dump(losses, writer)
+
+    logger.info('Validation finished.')
+
+
+def validate(validation_loader, checkpoint, criterion, centroids, batches):
+    model = 'resnet50'
+    model = VOSNet(model=model)
+    model = model.to(Config.DEVICE)
+
+    try:
+        model = load_model(model, str(checkpoint.absolute()))
+    except Exception:
+        model = nn.DataParallel(model)
+        model = load_model(model, str(checkpoint.absolute()))
+    model.eval()
+
+    # logger.info('Starting training epoch {}'.format(epoch))
+    mean_loss = []
+    for i, (img_input, annotation_input, _) in tqdm(enumerate(validation_loader), total=batches):
+        (batch_size, num_frames, num_channels, H, W) = img_input.shape
+        annotation_input = annotation_input.reshape(-1, 3, H, W).to(Config.DEVICE)
+        annotation_input_downsample = torch.nn.functional.interpolate(annotation_input,
+                                                                      scale_factor=Config.SCALE,
+                                                                      mode='nearest')
+        H_d = annotation_input_downsample.shape[-2]
+        W_d = annotation_input_downsample.shape[-1]
+
+        annotation_input = color_to_class(annotation_input_downsample, centroids)
+        annotation_input = annotation_input.reshape(batch_size, num_frames, H_d, W_d)
+
+        img_input = img_input.reshape(-1, num_channels, H, W).to(Config.DEVICE)
+
+        features = model(img_input)
+        feature_dim = features.shape[1]
+        features = features.reshape(batch_size, num_frames, feature_dim, H_d, W_d)
+
+        ref = features[:, 0:num_frames - 1, :, :, :]
+        target = features[:, -1, :, :, :]
+        ref_label = annotation_input[:, 0:num_frames - 1, :, :]
+        target_label = annotation_input[:, -1, :, :]
+
+        extra_embeddings, extra_labels = None, None
+        if hasattr(criterion, '_miner'):
+            if isinstance(criterion._miner, TemporalMiner):
+                extra_embeddings = features[:, -5:, :, :, :]
+                extra_labels = annotation_input[:, -5:, :, :]
+            elif isinstance(criterion._miner, OneBackOneAheadMiner):
+                back_embedding = features[:, -5:-3, :, :, :]
+                back_labels = annotation_input[:, -5:-3, :, :]
+                ahead_embedding = features[:, -2:, :, :, :]
+                ahead_labels = annotation_input[:, -2:, :, :]
+                target_embedding = features[:, -3, :, :, :].unsqueeze(1)
+                target_labels = annotation_input[:, -3, :, :].unsqueeze(1)
+                extra_embeddings = torch.cat([back_embedding, ahead_embedding, target_embedding], dim=1)
+                extra_labels = torch.cat([back_labels, ahead_labels, target_labels], dim=1)
+
+        ref_label = torch.zeros(batch_size, num_frames - 1, centroids.shape[0], H_d, W_d).to(
+            Config.DEVICE).scatter_(
+            2, ref_label.unsqueeze(2), 1)
+
+        loss = criterion(ref, target, ref_label, target_label, extra_embeddings, extra_labels)
+        mean_loss.append(loss.item())
+
     return np.array(mean_loss).mean()
