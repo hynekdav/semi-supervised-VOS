@@ -1,25 +1,39 @@
 # -*- encoding: utf-8 -*-
 # ! python3
-
+from multiprocessing import Pool
 from pathlib import Path
 
 import click
 import numpy as np
+from PIL import Image
 from loguru import logger
-from skimage.io import imread
-from skimage.transform import resize
 from tqdm import tqdm
-
-from multiprocessing import Pool
 
 from src.config import Config
 from src.utils.metrics import evaluate_segmentation
 
 
 def process_pair(gt, seg):
-    gt_img = np.ceil(imread(str(gt), as_gray=True))
-    seg_img = np.ceil(resize(imread(str(seg), as_gray=True), gt_img.shape))
-    return evaluate_segmentation(gt_img, seg_img)
+    gt_img = Image.open(gt).convert('P')
+    seg_img = Image.open(seg).convert('P')
+    seg_img = seg_img.resize(gt_img.size)
+
+    gt_img = np.asarray(gt_img)
+    seg_img = np.asarray(seg_img)
+
+    gt_palette = np.unique(gt_img)
+    seg_palette = np.unique(seg_img)
+
+    scores = []
+    for gt_color, seg_color in zip(gt_palette, seg_palette):
+        gt_to_process = gt_img == gt_color
+        seg_to_process = seg_img == seg_color
+        score = evaluate_segmentation(gt_to_process, seg_to_process)
+        scores.append(score)
+    scores = np.array(scores)
+    mean_scores = scores.mean(axis=0)
+
+    return mean_scores
 
 
 @click.command(name='evaluation')
@@ -44,14 +58,15 @@ def evaluation_command_impl(ground_truth, computed_results, disable=False):
     assert len(ground_truth) == len(computed)
 
     logger.info(f'Staring evaluation on {total} pairs.')
+
     pbar = tqdm(total=total, disable=disable)
     with Pool(Config.CPU_COUNT) as pool:
         res = [pool.apply_async(process_pair, args=(gt, seg,), callback=lambda _: pbar.update(1)) for gt, seg in
-               list(zip(ground_truth, computed))]
+               zip(ground_truth, computed)]
         scores = [p.get() for p in res]
         pbar.close()
-    j, f = map(np.array, zip(*scores))
+    j = np.array(scores)
     j_mean = j.mean()
-    f_mean = f.mean()
-    logger.info(f'Evaluated: j_mean={j_mean}, f_mean={f_mean}.')
-    return j_mean, f_mean
+    # f_mean = f.mean()
+    logger.info(f'Evaluated: j_mean={j_mean}.')  # f_mean={f_mean}.')
+    return j_mean  # , f_mean

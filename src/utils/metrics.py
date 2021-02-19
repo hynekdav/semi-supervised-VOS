@@ -8,7 +8,7 @@ import numpy as np
 
 
 def evaluate_segmentation(annotation, segmentation, void_pixels=None, threshold=0.008):
-    return eval_j(annotation, segmentation, void_pixels), eval_f(annotation, segmentation, void_pixels, threshold)
+    return eval_j(annotation, segmentation, void_pixels)  # , eval_f(annotation, segmentation, void_pixels, threshold)
 
 
 def eval_j(annotation, segmentation, void_pixels=None):
