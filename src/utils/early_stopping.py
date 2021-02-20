@@ -14,7 +14,7 @@ import torch
 class EarlyStopping(object):
     """Early stops the training if validation loss doesn't improve after a given patience."""
 
-    def __init__(self, directory, *, patience=7, verbose=False, delta=0, path='early-stopping-{:03d}-{:.5f}.pt',
+    def __init__(self, directory, *, patience=7, verbose=False, delta=0, path='model.pth.tar',
                  trace_func=print):
         """
         Args:
@@ -64,5 +64,5 @@ class EarlyStopping(object):
         if self.verbose:
             self.trace_func(
                 f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
-        torch.save(model.state_dict(), str(self.directory / self.path.format(epoch, val_loss)))
+        torch.save(model.state_dict(), str(self.directory / self.path))
         self.val_loss_min = val_loss
