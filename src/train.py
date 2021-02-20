@@ -88,13 +88,14 @@ def train_command(frame_num, training, validation, resume, save_model, epochs, b
                                       frame_num=frame_num,
                                       color_jitter=False)
     validation_loader = torch.utils.data.DataLoader(validation_dataset,
-                                                    batch_size=bs,
+                                                    batch_size=bs // 2,
                                                     shuffle=False,
                                                     pin_memory=True,
                                                     num_workers=8,
                                                     drop_last=True)
 
-    batches = math.ceil(len(train_dataset) / bs)
+    train_batches = math.ceil(len(train_dataset) / bs)
+    validation_batches = math.ceil(len(train_dataset) / (bs // 2))
 
     start_epoch = 0
     if resume is not None:
@@ -120,8 +121,8 @@ def train_command(frame_num, training, validation, resume, save_model, epochs, b
 
     early_stopper = EarlyStopping(save_model, trace_func=logger.info)
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
-        train_loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
-        validation_loss = validate(validation_loader, model, criterion, centroids, batches)
+        train_loss = train(train_loader, model, criterion, optimizer, epoch, centroids, train_batches)
+        validation_loss = validate(validation_loader, model, criterion, centroids, validation_batches)
         scheduler.step()
 
         if early_stopper(validation_loss, epoch, model):
