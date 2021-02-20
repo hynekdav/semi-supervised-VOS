@@ -17,12 +17,16 @@ from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLoss
 from src.model.triplet_miners import get_miner, TemporalMiner, OneBackOneAheadMiner
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset, InferenceDataset
+from src.utils.early_stopping import EarlyStopping
 from src.utils.utils import color_to_class, load_model
 
 
 @click.command(name='train')
 @click.option('--frame_num', '-n', type=int, default=10, help='number of frames to train')
-@click.option('--data', '-d', type=click.Path(file_okay=False, dir_okay=True), required=True, help='path to dataset')
+@click.option('--train', '-t', 'training', type=click.Path(file_okay=False, dir_okay=True), required=True,
+              help='path to training dataset')
+@click.option('--val', '-v', 'validation', type=click.Path(file_okay=False, dir_okay=True), required=True,
+              help='path to validation dataset')
 @click.option('--resume', '-r', type=click.Path(dir_okay=False, file_okay=True), help='path to the resumed checkpoint')
 @click.option('--save_model', '-m', type=click.Path(dir_okay=True, file_okay=False), default='./checkpoints',
               help='directory to save checkpoints')
@@ -37,7 +41,8 @@ from src.utils.utils import color_to_class, load_model
               default='default', help='Triplet loss miner.')
 @click.option('--margin', type=click.FloatRange(min=0.0, max=1.0), default=0.1, help='Triplet loss margin.')
 @click.option('--loss_weight', type=click.FloatRange(min=0.0), default=1.0, help='Weight of triplet loss.')
-def train_command(frame_num, data, resume, save_model, epochs, bs, lr, loss, freeze, miner, margin, loss_weight):
+def train_command(frame_num, training, validation, resume, save_model, epochs, bs, lr, loss, freeze, miner, margin,
+                  loss_weight):
     logger.info('Training started.')
 
     temperature = 1.0
@@ -67,17 +72,28 @@ def train_command(frame_num, data, resume, save_model, epochs, bs, lr, loss, fre
                                 weight_decay=3e-4)
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs, eta_min=4e-5)
-    train_dataset = TrainDataset(Path(data) / 'JPEGImages/480p',
-                                 Path(data) / 'Annotations/480p',
+    train_dataset = TrainDataset(Path(training) / 'JPEGImages/480p',
+                                 Path(training) / 'Annotations/480p',
                                  frame_num=frame_num,
                                  color_jitter=False)
-
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                                batch_size=bs,
                                                shuffle=False,
                                                pin_memory=True,
                                                num_workers=8,
                                                drop_last=True)
+
+    validation_dataset = TrainDataset(Path(validation) / 'JPEGImages/480p',
+                                      Path(validation) / 'Annotations/480p',
+                                      frame_num=frame_num,
+                                      color_jitter=False)
+    validation_loader = torch.utils.data.DataLoader(validation_dataset,
+                                                    batch_size=bs,
+                                                    shuffle=False,
+                                                    pin_memory=True,
+                                                    num_workers=8,
+                                                    drop_last=True)
+
     batches = math.ceil(len(train_dataset) / bs)
 
     start_epoch = 0
@@ -101,11 +117,18 @@ def train_command(frame_num, data, resume, save_model, epochs, bs, lr, loss, fre
             model.module.freeze_feature_extraction()
         else:
             model.freeze_feature_extraction()
+
+    early_stopper = EarlyStopping(save_model, trace_func=logger.info)
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
-        loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
+        train_loss = train(train_loader, model, criterion, optimizer, epoch, centroids, batches)
+        validation_loss = validate(validation_loader, model, criterion, centroids, batches)
         scheduler.step()
 
-        checkpoint_name = 'checkpoint-epoch-{:03d}-{}.pth.tar'.format(epoch, loss)
+        if early_stopper(validation_loss, epoch, model):
+            logger.info('Early stopping stopped the training.')
+            break
+
+        checkpoint_name = 'checkpoint-epoch-{:03d}-{:5f}-{:5f}.pth.tar'.format(epoch, train_loss, validation_loss)
         save_path = save_model / checkpoint_name
         torch.save({
             'epoch': epoch + 1,
@@ -117,6 +140,7 @@ def train_command(frame_num, data, resume, save_model, epochs, bs, lr, loss, fre
 
 
 def train(train_loader, model, criterion, optimizer, epoch, centroids, batches):
+    model = model.train()
     # logger.info('Starting training epoch {}'.format(epoch))
     mean_loss = []
     for i, (img_input, annotation_input, _) in tqdm(enumerate(train_loader), desc=f'Training epoch {epoch}.',
@@ -224,7 +248,17 @@ def validation_command(data, checkpoints, bs, loss, miner, margin, loss_weight, 
 
     losses = {}
     for checkpoint in tqdm(checkpoints, desc=f'Validating checkpoints: '):
-        loss = validate(validation_loader, checkpoint, criterion, centroids, batches)
+        model = 'resnet50'
+        model = VOSNet(model=model)
+        model = model.to(Config.DEVICE)
+
+        try:
+            model = load_model(model, str(checkpoint.absolute()))
+        except Exception:
+            model = nn.DataParallel(model)
+            model = load_model(model, str(checkpoint.absolute()))
+        model.eval()
+        loss = validate(validation_loader, model, criterion, centroids, batches)
         losses[checkpoint.name] = loss
 
     with Path(output).open(mode='w') as writer:
@@ -233,18 +267,8 @@ def validation_command(data, checkpoints, bs, loss, miner, margin, loss_weight, 
     logger.info('Validation finished.')
 
 
-def validate(validation_loader, checkpoint, criterion, centroids, batches):
-    model = 'resnet50'
-    model = VOSNet(model=model)
-    model = model.to(Config.DEVICE)
-
-    try:
-        model = load_model(model, str(checkpoint.absolute()))
-    except Exception:
-        model = nn.DataParallel(model)
-        model = load_model(model, str(checkpoint.absolute()))
-    model.eval()
-
+def validate(validation_loader, model, criterion, centroids, batches):
+    model = model.eval()
     # logger.info('Starting training epoch {}'.format(epoch))
     mean_loss = []
     for i, (img_input, annotation_input, _) in tqdm(enumerate(validation_loader), total=batches):
