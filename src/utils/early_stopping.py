@@ -34,6 +34,7 @@ class EarlyStopping(object):
         self.verbose = verbose
         self.counter = 0
         self.best_score = None
+        self.best_epoch = None
         self.early_stop = False
         self.val_loss_min = np.Inf
         self.delta = delta
@@ -53,6 +54,7 @@ class EarlyStopping(object):
             self.trace_func(f'EarlyStopping counter: {self.counter} out of {self.patience}')
             if self.counter >= self.patience:
                 self.early_stop = True
+                self.trace_func(f'Best epoch was {self.best_epoch} with {self.val_loss_min}.')
         else:
             self.best_score = score
             self.save_checkpoint(val_loss, epoch, model)
@@ -66,3 +68,4 @@ class EarlyStopping(object):
                 f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         torch.save(model.state_dict(), str(self.directory / self.path))
         self.val_loss_min = val_loss
+        self.best_epoch = epoch
