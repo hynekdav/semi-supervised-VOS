@@ -16,7 +16,7 @@ from src.config import Config
 from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLossWithMiner
 from src.model.triplet_miners import get_miner, TemporalMiner, OneBackOneAheadMiner
 from src.model.vos_net import VOSNet
-from src.utils.datasets import TrainDataset, InferenceDataset
+from src.utils.datasets import TrainDataset
 from src.utils.early_stopping import EarlyStopping
 from src.utils.utils import color_to_class, load_model
 
@@ -37,7 +37,8 @@ from src.utils.utils import color_to_class, load_model
               default='cross_entropy', help='Loss function to use.')
 @click.option('--freeze/--no-freeze', default=True)
 @click.option('--miner', type=click.Choice(['default', 'kernel_7x7', 'temporal', 'one_back_one_ahead',
-                                            'euclidean', 'manhattan', 'chebyshev', 'skeleton']),
+                                            'euclidean', 'manhattan', 'chebyshev', 'skeleton',
+                                            'skeleton_distance_transform']),
               default='default', help='Triplet loss miner.')
 @click.option('--margin', type=click.FloatRange(min=0.0, max=1.0), default=0.1, help='Triplet loss margin.')
 @click.option('--loss_weight', type=click.FloatRange(min=0.0), default=1.0, help='Weight of triplet loss.')

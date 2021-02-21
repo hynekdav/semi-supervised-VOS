@@ -25,7 +25,8 @@ def get_miner(miner_name):
               'euclidean': DistanceTransformationMiner(metric='euclidean'),
               'manhattan': DistanceTransformationMiner(metric='manhattan'),
               'chebyshev': DistanceTransformationMiner(metric='chessboard'),
-              'skeleton': SkeletonMiner()}
+              'skeleton': SkeletonMiner(),
+              'skeleton_distance_transform': SkeletonWithDistanceTransformMiner()}
     return miners.get(miner_name)
 
 
@@ -136,7 +137,7 @@ class OneBackOneAheadMiner(AbstractTripletMiner):
 
 
 class DistanceTransformationMiner(AbstractTripletMiner):
-    def __init__(self, metric='euclidean', margin=0.1):
+    def __init__(self, metric='euclidean'):
         super().__init__()
         available_metrics = {'euclidean', 'manhattan', 'taxicab', 'cityblock', 'chessboard'}
         assert metric in available_metrics
@@ -145,7 +146,6 @@ class DistanceTransformationMiner(AbstractTripletMiner):
             self._distance_transformation = ndimage.distance_transform_edt
         else:
             self._distance_transformation = functools.partial(ndimage.distance_transform_cdt, metric=metric)
-        self._margin = margin
 
     def get_triplets(self, batched_embeddings, batched_labels):
         all_anchors, all_positives, all_negatives = [], [], []
@@ -232,6 +232,78 @@ class SkeletonMiner(AbstractTripletMiner):
                 all_positives.append(torch.cat(positives))
                 all_negatives.append(torch.cat(negatives))
 
-        if len(all_anchors) != 0:
-            return torch.cat(all_anchors), torch.cat(all_positives), torch.cat(all_negatives)
-        return torch.tensor([]), torch.tensor([]), torch.tensor([])
+        if len(all_anchors) == 0:
+            return torch.tensor([]), torch.tensor([]), torch.tensor([])
+        return torch.cat(all_anchors), torch.cat(all_positives), torch.cat(all_negatives)
+
+
+class SkeletonWithDistanceTransformMiner(AbstractTripletMiner):
+    def __init__(self, metric='manhattan'):
+        super().__init__()
+        available_metrics = {'euclidean', 'manhattan', 'taxicab', 'cityblock', 'chessboard'}
+        assert metric in available_metrics
+        self._distance_transformation = lambda n: n
+        if metric == 'euclidean':
+            self._distance_transformation = ndimage.distance_transform_edt
+        else:
+            self._distance_transformation = functools.partial(ndimage.distance_transform_cdt, metric=metric)
+
+    def get_triplets(self, batched_embeddings, batched_labels):
+        all_anchors, all_positives, all_negatives = [], [], []
+
+        # todo:
+        # for each label class:
+        #   a. get skeleton
+        #   b. get distance transformation
+        #   c. skeleton becomes anchors
+        #   d. calculate similarity between all skeleton pixels and positives
+        #   e. for each anchor get negative from the distance transform
+        #   f. for each anchor select positive as the least similar pixel
+
+        for embeddings, labels in zip(batched_embeddings, batched_labels):
+
+            unique_labels = np.unique(labels.cpu().numpy())
+            anchors, positives, negatives = [], [], []
+            for label in unique_labels:
+                binary_mask = (labels == label).cpu().numpy().astype(np.int32)
+
+                skeleton = skeletonize(binary_mask).astype(np.uint8)
+                distances, indices = self._distance_transformation(binary_mask, return_indices=True)
+                anchor_indices = np.where(np.logical_and(distances != 0, skeleton == 1))
+
+                current_anchors = embeddings[:, skeleton == 1]
+                current_anchors = current_anchors.permute((1, 0))
+
+                positive_candidates = embeddings[:, np.logical_and(binary_mask == 1, skeleton == 0)]
+                positive_candidates = positive_candidates.permute((1, 0))
+
+                if positive_candidates.numel() == 0 \
+                        or current_anchors.numel() == 0:
+                    continue
+
+                current_negatives = []
+                for i, j in zip(*anchor_indices):
+                    x, y = indices[:, i, j]
+                    negative = embeddings[:, x, y]
+                    current_negatives.append(negative)
+                current_negatives = torch.stack(current_negatives)
+
+                normalized_anchors = F.normalize(current_anchors, dim=-1, p=2)
+                normalized_positives = F.normalize(positive_candidates, dim=-1, p=2)
+
+                positive_similarities = 1 - torch.cdist(normalized_anchors, normalized_positives, p=2)
+
+                current_positives = positive_candidates[torch.argmin(positive_similarities, dim=-1)]
+
+                anchors.append(current_anchors)
+                positives.append(current_positives)
+                negatives.append(current_negatives)
+
+            if len(anchors) != 0:
+                all_anchors.append(torch.cat(anchors))
+                all_positives.append(torch.cat(positives))
+                all_negatives.append(torch.cat(negatives))
+
+        if len(all_anchors) == 0:
+            return torch.tensor([]), torch.tensor([]), torch.tensor([])
+        return torch.cat(all_anchors), torch.cat(all_positives), torch.cat(all_negatives)
