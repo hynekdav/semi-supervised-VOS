@@ -39,10 +39,38 @@ def batched_index_select(t, dim, inds):
 class AbstractTripletMiner(ABC):
     def __init__(self):
         self._cosine_similarity = nn.CosineSimilarity(dim=-1)
+        self._max_triplets = 0
 
     @abstractmethod
     def get_triplets(self, embeddings, labels):
         pass
+
+    def limit_triplets(self, triplets):
+        assert len(triplets) == 3
+        assert len(triplets[0].shape) == 3
+        if self._max_triplets == 0 or triplets[0].shape[1] <= self._max_triplets:
+            return triplets
+        batch_num = triplets[0].shape[0]
+
+        indices = []
+        for batch in range(batch_num):
+            current_indices = torch.randperm(triplets[0].shape[1], )[:self._max_triplets]
+            indices.append(current_indices)
+        indices = torch.stack(indices)
+
+        anchors = batched_index_select(triplets[0], dim=1, inds=indices)
+        positives = batched_index_select(triplets[1], dim=1, inds=indices)
+        negatives = batched_index_select(triplets[2], dim=1, inds=indices)
+
+        return anchors, positives, negatives
+
+    @property
+    def max_triplets(self):
+        return self._max_triplets
+
+    @max_triplets.setter
+    def max_triplets(self, new_value):
+        self._max_triplets = new_value
 
 
 class KernelMiner(AbstractTripletMiner):
@@ -79,6 +107,7 @@ class KernelMiner(AbstractTripletMiner):
 
         negatives = self.sample_negatives(anchors, tensor, tensor_labels, anchors_labels)
 
+        anchors, positives, negatives = self.limit_triplets((anchors, positives, negatives))
         return anchors, positives, negatives
 
     def sample_negatives(self, anchors, tensor, labels, labels_to_omit):
@@ -124,6 +153,7 @@ class TemporalMiner(AbstractTripletMiner):
         positives = batched_index_select(candidate_embeddings, 1, positive_indices)
         anchors = torch.clone(last_frame_embeddings)
 
+        anchors, positives, negatives = self.limit_triplets((anchors, positives, negatives))
         return anchors, positives, negatives
 
 
@@ -184,7 +214,12 @@ class DistanceTransformationMiner(AbstractTripletMiner):
             all_positives.append(torch.stack(positives))
             all_negatives.append(torch.stack(negatives))
 
-        return torch.stack(all_anchors), torch.stack(all_positives), torch.stack(all_negatives)
+        anchors = torch.stack(all_anchors)
+        positives = torch.stack(all_positives)
+        negatives = torch.stack(all_negatives)
+
+        anchors, positives, negatives = self.limit_triplets((anchors, positives, negatives))
+        return anchors, positives, negatives
 
 
 class SkeletonMiner(AbstractTripletMiner):
@@ -234,7 +269,13 @@ class SkeletonMiner(AbstractTripletMiner):
 
         if len(all_anchors) == 0:
             return torch.tensor([]), torch.tensor([]), torch.tensor([])
-        return torch.cat(all_anchors), torch.cat(all_positives), torch.cat(all_negatives)
+
+        anchors = torch.stack(all_anchors)
+        positives = torch.stack(all_positives)
+        negatives = torch.stack(all_negatives)
+
+        anchors, positives, negatives = self.limit_triplets((anchors, positives, negatives))
+        return anchors, positives, negatives
 
 
 class SkeletonWithDistanceTransformMiner(AbstractTripletMiner):
@@ -250,15 +291,6 @@ class SkeletonWithDistanceTransformMiner(AbstractTripletMiner):
 
     def get_triplets(self, batched_embeddings, batched_labels):
         all_anchors, all_positives, all_negatives = [], [], []
-
-        # todo:
-        # for each label class:
-        #   a. get skeleton
-        #   b. get distance transformation
-        #   c. skeleton becomes anchors
-        #   d. calculate similarity between all skeleton pixels and positives
-        #   e. for each anchor get negative from the distance transform
-        #   f. for each anchor select positive as the least similar pixel
 
         for embeddings, labels in zip(batched_embeddings, batched_labels):
 
@@ -306,4 +338,10 @@ class SkeletonWithDistanceTransformMiner(AbstractTripletMiner):
 
         if len(all_anchors) == 0:
             return torch.tensor([]), torch.tensor([]), torch.tensor([])
-        return torch.cat(all_anchors), torch.cat(all_positives), torch.cat(all_negatives)
+
+        anchors = torch.stack(all_anchors)
+        positives = torch.stack(all_positives)
+        negatives = torch.stack(all_negatives)
+
+        anchors, positives, negatives = self.limit_triplets((anchors, positives, negatives))
+        return anchors, positives, negatives

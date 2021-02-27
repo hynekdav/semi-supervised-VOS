@@ -42,8 +42,10 @@ from src.utils.utils import color_to_class, load_model
               default='default', help='Triplet loss miner.')
 @click.option('--margin', type=click.FloatRange(min=0.0, max=1.0), default=0.1, help='Triplet loss margin.')
 @click.option('--loss_weight', type=click.FloatRange(min=0.0), default=1.0, help='Weight of triplet loss.')
+@click.option('--max_triplets', type=click.IntRange(min=0), default=0,
+              help='Maximum number of triplets to mine (0 means take all triplets).')
 def train_command(frame_num, training, validation, resume, save_model, epochs, bs, lr, loss, freeze, miner, margin,
-                  loss_weight):
+                  loss_weight, max_triplets):
     logger.info('Training started.')
 
     temperature = 1.0
@@ -59,6 +61,7 @@ def train_command(frame_num, training, validation, resume, save_model, epochs, b
         criterion = ContrastiveLoss(temperature=temperature).to(Config.DEVICE)
     elif loss == 'triplet':
         miner = get_miner(miner)
+        miner.max_triplets = max_triplets
         if miner is None:
             raise RuntimeError('Invalid miner type.')
         criterion = TripletLossWithMiner(miner, margin=margin, temperature=temperature, weights=(1.0, loss_weight)) \
