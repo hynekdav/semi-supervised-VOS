@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from src.config import Config
 from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLossWithMiner
-from src.model.triplet_miners import get_miner, TemporalMiner, OneBackOneAheadMiner
+from src.model.triplet_miners import get_miner, TemporalMiner, OneBackOneAheadMiner, SkeletonTemporalMiner
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.early_stopping import EarlyStopping
@@ -38,7 +38,7 @@ from src.utils.utils import color_to_class, load_model
 @click.option('--freeze/--no-freeze', default=True)
 @click.option('--miner', type=click.Choice(['default', 'kernel_7x7', 'temporal', 'one_back_one_ahead',
                                             'euclidean', 'manhattan', 'chebyshev', 'skeleton',
-                                            'skeleton_distance_transform']),
+                                            'skeleton_distance_transform', 'skeleton_temporal']),
               default='default', help='Triplet loss miner.')
 @click.option('--margin', type=click.FloatRange(min=0.0, max=1.0), default=0.1, help='Triplet loss margin.')
 @click.option('--loss_weight', type=click.FloatRange(min=0.0), default=1.0, help='Weight of triplet loss.')
@@ -263,6 +263,13 @@ def step(loader, model, criterion, optimizer, epoch, centroids, batches, mode='t
                 target_labels = annotation_input[:, -3, :, :].unsqueeze(1)
                 extra_embeddings = torch.cat([back_embedding, ahead_embedding, target_embedding], dim=1)
                 extra_labels = torch.cat([back_labels, ahead_labels, target_labels], dim=1)
+            elif isinstance(criterion._miner, SkeletonTemporalMiner):
+                extra_embeddings = features[:, -5:, :, :, :].permute((0, 2, 1, 3, 4))
+                extra_embeddings = extra_embeddings.reshape(batch_size, feature_dim, 5 * 32, 32)
+                extra_labels = annotation_input[:, -5:, :, :].permute((0, 2, 1, 3))
+                extra_labels = extra_labels.reshape(batch_size, 5 * 32, 32)
+
+                pass
 
         ref_label = torch.zeros(batch_size, num_frames - 1, centroids.shape[0], H_d, W_d).to(
             Config.DEVICE).scatter_(

@@ -16,6 +16,8 @@ from scipy import ndimage
 from skimage.morphology import skeletonize
 import numpy as np
 
+from src.config import Config
+
 
 def get_miner(miner_name):
     miners = {'default': KernelMiner(3, 3),
@@ -26,7 +28,8 @@ def get_miner(miner_name):
               'manhattan': DistanceTransformationMiner(metric='manhattan'),
               'chebyshev': DistanceTransformationMiner(metric='chessboard'),
               'skeleton': SkeletonMiner(),
-              'skeleton_distance_transform': SkeletonWithDistanceTransformMiner()}
+              'skeleton_distance_transform': SkeletonWithDistanceTransformMiner(),
+              'skeleton_temporal': SkeletonTemporalMiner()}
     return miners.get(miner_name)
 
 
@@ -54,7 +57,7 @@ class AbstractTripletMiner(ABC):
 
         indices = []
         for batch in range(batch_num):
-            current_indices = torch.randperm(triplets[0].shape[1], )[:self._max_triplets]
+            current_indices = torch.randperm(triplets[0].shape[1], device=Config.DEVICE)[:self._max_triplets]
             indices.append(current_indices)
         indices = torch.stack(indices)
 
@@ -345,3 +348,12 @@ class SkeletonWithDistanceTransformMiner(AbstractTripletMiner):
 
         anchors, positives, negatives = self.limit_triplets((anchors, positives, negatives))
         return anchors, positives, negatives
+
+
+class SkeletonTemporalMiner(AbstractTripletMiner):
+    def __init__(self):
+        super().__init__()
+        self._miner = SkeletonMiner()
+
+    def get_triplets(self, embeddings, labels):
+        return self._miner.get_triplets(embeddings, labels)
