@@ -91,15 +91,16 @@ def train_command(frame_num, training, validation, resume, save_model, epochs, b
                                       Path(validation) / 'Annotations/480p',
                                       frame_num=frame_num,
                                       color_jitter=False)
+    validation_bs = max(bs // 2, 1)
     validation_loader = torch.utils.data.DataLoader(validation_dataset,
-                                                    batch_size=bs // 2,
+                                                    batch_size=validation_bs,
                                                     shuffle=False,
                                                     pin_memory=True,
                                                     num_workers=8,
                                                     drop_last=True)
 
     train_batches = math.ceil(len(train_dataset) / bs)
-    validation_batches = math.ceil(len(train_dataset) / (bs // 2))
+    validation_batches = math.ceil(len(train_dataset) / validation_bs)
 
     start_epoch = 0
     if resume is not None:
