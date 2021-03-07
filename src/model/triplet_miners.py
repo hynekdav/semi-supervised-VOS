@@ -375,8 +375,8 @@ class WrongPredictionsMiner(AbstractTripletMiner):
             normalized_anchors = F.normalize(anchors, p=2)
             anchors_labels = labels[difference]
             unique_labels = torch.unique(anchors_labels)
-            positives = torch.zeros(size=anchors.shape, dtype=anchors.dtype)
-            negatives = torch.zeros(size=anchors.shape, dtype=anchors.dtype)
+            positives = torch.zeros(size=anchors.shape, dtype=anchors.dtype, device=Config.DEVICE)
+            negatives = torch.zeros(size=anchors.shape, dtype=anchors.dtype, device=Config.DEVICE)
 
             for label in unique_labels:
                 current_anchors = anchors_labels == label
