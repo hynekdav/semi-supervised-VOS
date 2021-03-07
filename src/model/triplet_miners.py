@@ -29,7 +29,8 @@ def get_miner(miner_name):
               'chebyshev': DistanceTransformationMiner(metric='chessboard'),
               'skeleton': SkeletonMiner(),
               'skeleton_distance_transform': SkeletonWithDistanceTransformMiner(),
-              'skeleton_temporal': SkeletonTemporalMiner()}
+              'skeleton_temporal': SkeletonTemporalMiner(),
+              'wrong_predictions': WrongPredictionsMiner()}
     return miners.get(miner_name)
 
 
@@ -45,7 +46,7 @@ class AbstractTripletMiner(ABC):
         self._max_triplets = 0
 
     @abstractmethod
-    def get_triplets(self, embeddings, labels):
+    def get_triplets(self, embeddings, labels, prediction):
         pass
 
     def limit_triplets(self, triplets):
@@ -93,7 +94,7 @@ class KernelMiner(AbstractTripletMiner):
         patches = patches.reshape(tensor.shape[0], -1, self._kernel_size * self._kernel_size)
         return patches
 
-    def get_triplets(self, tensor, tensor_labels):
+    def get_triplets(self, tensor, tensor_labels, prediction):
         anchor_idx = (self._kernel_size * self._kernel_size) // 2
         patches = self.sample_patches(tensor)
         labels = self.sample_patches_labels(tensor_labels)
@@ -127,7 +128,7 @@ class KernelMiner(AbstractTripletMiner):
 
 
 class TemporalMiner(AbstractTripletMiner):
-    def get_triplets(self, embeddings, labels):
+    def get_triplets(self, embeddings, labels, prediction):
         embeddings = embeddings.permute(0, 1, 3, 4, 2)
         (batch_size, _, _, _, features_size) = embeddings.shape
         last_frame_embeddings = embeddings[:, -1, ...].reshape(batch_size, -1, features_size)
@@ -165,8 +166,8 @@ class OneBackOneAheadMiner(AbstractTripletMiner):
         super().__init__()
         self.miner = TemporalMiner()
 
-    def get_triplets(self, embeddings, labels):
-        return self.miner.get_triplets(embeddings, labels)
+    def get_triplets(self, embeddings, labels, prediction):
+        return self.miner.get_triplets(embeddings, labels, prediction)
 
 
 class DistanceTransformationMiner(AbstractTripletMiner):
@@ -180,7 +181,7 @@ class DistanceTransformationMiner(AbstractTripletMiner):
         else:
             self._distance_transformation = functools.partial(ndimage.distance_transform_cdt, metric=metric)
 
-    def get_triplets(self, batched_embeddings, batched_labels):
+    def get_triplets(self, batched_embeddings, batched_labels, prediction):
         all_anchors, all_positives, all_negatives = [], [], []
 
         for embeddings, labels in zip(batched_embeddings, batched_labels):
@@ -226,7 +227,7 @@ class DistanceTransformationMiner(AbstractTripletMiner):
 
 
 class SkeletonMiner(AbstractTripletMiner):
-    def get_triplets(self, batched_embeddings, batched_labels):
+    def get_triplets(self, batched_embeddings, batched_labels, prediction):
         all_anchors, all_positives, all_negatives = [], [], []
 
         for embeddings, labels in zip(batched_embeddings, batched_labels):
@@ -292,7 +293,7 @@ class SkeletonWithDistanceTransformMiner(AbstractTripletMiner):
         else:
             self._distance_transformation = functools.partial(ndimage.distance_transform_cdt, metric=metric)
 
-    def get_triplets(self, batched_embeddings, batched_labels):
+    def get_triplets(self, batched_embeddings, batched_labels, prediction):
         all_anchors, all_positives, all_negatives = [], [], []
 
         for embeddings, labels in zip(batched_embeddings, batched_labels):
@@ -355,5 +356,49 @@ class SkeletonTemporalMiner(AbstractTripletMiner):
         super().__init__()
         self._miner = SkeletonMiner()
 
-    def get_triplets(self, embeddings, labels):
-        return self._miner.get_triplets(embeddings, labels)
+    def get_triplets(self, embeddings, labels, prediction):
+        return self._miner.get_triplets(embeddings, labels, prediction)
+
+
+class WrongPredictionsMiner(AbstractTripletMiner):
+    def get_triplets(self, batched_embeddings, batched_labels, prediction):
+        batched_prediction = prediction
+        all_anchors, all_positives, all_negatives = [], [], []
+        feature_dim = batched_embeddings.shape[1]
+
+        for i, (embeddings, labels, prediction) in enumerate(
+                zip(batched_embeddings, batched_labels, batched_prediction)):
+            difference = (prediction != labels).reshape(-1)
+            labels = labels.reshape(-1)
+            embeddings = embeddings.permute((1, 2, 0)).reshape(-1, feature_dim)
+            anchors = embeddings[difference]
+            normalized_anchors = F.normalize(anchors, p=2)
+            anchors_labels = labels[difference]
+            unique_labels = torch.unique(anchors_labels)
+            positives = torch.zeros(size=anchors.shape, dtype=anchors.dtype)
+            negatives = torch.zeros(size=anchors.shape, dtype=anchors.dtype)
+
+            for label in unique_labels:
+                current_anchors = anchors_labels == label
+                indexer = torch.nonzero(current_anchors).squeeze()
+                current_anchors = normalized_anchors[current_anchors]
+                positive_candidates = F.normalize(embeddings[labels == label], p=2)
+                negative_candidates = F.normalize(embeddings[labels != label], p=2)
+
+                positive_similarities = 1 - torch.cdist(current_anchors, positive_candidates, p=2)
+                negative_similarities = 1 - torch.cdist(current_anchors, negative_candidates, p=2)
+
+                current_positives = embeddings[torch.argmin(positive_similarities, dim=-1)]
+                current_negatives = embeddings[torch.argmax(negative_similarities, dim=-1)]
+
+                positives[indexer] = current_positives
+                negatives[indexer] = current_negatives
+            all_anchors.append(anchors)
+            all_positives.append(positives)
+            all_negatives.append(negatives)
+
+        anchors = torch.cat(all_anchors)
+        positives = torch.cat(all_positives)
+        negatives = torch.cat(all_negatives)
+
+        return anchors, positives, negatives

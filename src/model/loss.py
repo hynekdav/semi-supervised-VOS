@@ -42,7 +42,7 @@ class CrossEntropy(nn.Module):
         self.temperature = temperature
         self.nllloss = nn.NLLLoss()
 
-    def forward(self, ref, target, ref_label, target_label, _, __):
+    def forward(self, ref, target, ref_label, target_label, _, __, return_prediction=False):
         """
         let Nt = num of target pixels, Nr = num of ref pixels
         :param ref: (batchSize, num_ref, feature_dim, H, W)
@@ -60,6 +60,9 @@ class CrossEntropy(nn.Module):
         prediction = torch.log(prediction + 1e-14)
         loss = self.nllloss(prediction, target_label)
 
+        if return_prediction:
+            prediction = torch.argmax(prediction, dim=1)
+            return loss, prediction
         return loss
 
 
@@ -115,12 +118,13 @@ class TripletLossWithMiner(nn.Module):
         :param target_label: label for target pixels (ground truth)
                             (batchSize, H, W)
         """
-        cross_entropy_loss = self._cross_entropy(ref, target, ref_label, target_label, None, None)
+        cross_entropy_loss, prediction = self._cross_entropy(ref, target, ref_label, target_label, None, None,
+                                                             return_prediction=True)
 
         if extra_embeddings is not None and extra_labels is not None:
             target = extra_embeddings
             target_label = extra_labels
-        anchors, positives, negatives = self._miner.get_triplets(target, target_label)
+        anchors, positives, negatives = self._miner.get_triplets(target, target_label, prediction=prediction)
 
         if anchors.numel() != 0:
             metric_loss = self._triplet_loss(anchors, positives, negatives)
