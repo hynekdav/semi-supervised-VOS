@@ -385,6 +385,11 @@ class WrongPredictionsMiner(AbstractTripletMiner):
                 positive_candidates = F.normalize(embeddings[labels == label], p=2)
                 negative_candidates = F.normalize(embeddings[labels != label], p=2)
 
+                if positive_candidates.numel() == 0 \
+                        or positive_candidates.numel() == 0 \
+                        or negative_candidates.numel() == 0:
+                    continue
+
                 positive_similarities = 1 - torch.cdist(current_anchors, positive_candidates, p=2)
                 negative_similarities = 1 - torch.cdist(current_anchors, negative_candidates, p=2)
 
