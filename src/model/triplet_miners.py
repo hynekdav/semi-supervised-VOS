@@ -398,6 +398,13 @@ class WrongPredictionsMiner(AbstractTripletMiner):
 
                 positives[indexer] = current_positives
                 negatives[indexer] = current_negatives
+
+            keep = positives.abs().sum(dim=1).bool()
+
+            anchors = anchors[keep]
+            positives = positives[keep]
+            negatives = negatives[keep]
+
             all_anchors.append(anchors)
             all_positives.append(positives)
             all_negatives.append(negatives)
