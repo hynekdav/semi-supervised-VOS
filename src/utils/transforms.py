@@ -3,9 +3,9 @@
 
 
 import numbers
-import random
 from pathlib import Path
 
+import torch
 from torchvision import transforms
 from tqdm import tqdm
 
@@ -28,8 +28,8 @@ def get_crop_params(img_size, output_size):
     if w == tw and h == th:
         return 0, 0, h, w
 
-    i = random.randint(0, h - th)
-    j = random.randint(0, w - tw)
+    i = torch.randint(low=0, high=h - th, size=(1,)).item()
+    j = torch.randint(low=0, high=w - tw, size=(1,)).item()
     return i, j, th, tw
 
 

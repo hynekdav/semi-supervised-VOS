@@ -47,6 +47,7 @@ from src.utils.utils import color_to_class, load_model
 def train_command(frame_num, training, validation, resume, save_model, epochs, bs, lr, loss, freeze, miner, margin,
                   loss_weight, max_triplets):
     logger.info('Training started.')
+    torch.manual_seed(42)
 
     temperature = 1.0
     model = 'resnet50'

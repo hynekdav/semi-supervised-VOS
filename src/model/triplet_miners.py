@@ -208,7 +208,7 @@ class DistanceTransformationMiner(AbstractTripletMiner):
                     negatives.append(embeddings[:, x, y])
 
                     if positive_candidates.numel() == 0:
-                        positive_idx = np.random.randint(low=0, high=len(pixels_to_process))
+                        positive_idx = torch.randint(low=0, high=len(pixels_to_process), size=(1,)).item()
                         x, y = pixels_to_process[positive_idx]
                         positives.append(embeddings[:, x, y])
                     else:

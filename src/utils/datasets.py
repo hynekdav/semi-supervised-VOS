@@ -69,8 +69,8 @@ class TrainDataset(datasets.ImageFolder):
         else:
             color_transform = lambda t: t
         crop_i, crop_j, th, tw = 0, 0, 0, 0
-        h_flip = True if np.random.random() < 0.5 else False
-        v_flip = True if np.random.random() < 0.5 else False
+        h_flip = True if torch.rand(size=(1,)).item() < 0.5 else False
+        v_flip = True if torch.rand(size=(1,)).item() < 0.5 else False
         for i in range(self.frame_num):
             img = Image.open(BytesIO(self.img_bytes[index + i]))
             img = img.convert('RGB')
