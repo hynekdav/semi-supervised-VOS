@@ -381,7 +381,11 @@ class WrongPredictionsMiner(AbstractTripletMiner):
         plt.close()
 
     def _save_predictions(self, predictions, ground_truth, predictions_difference):
-        gt_hash = sha1(ground_truth.cpu().numpy()).hexdigest()
+        predictions = predictions.cpu()
+        ground_truth = ground_truth.cpu()
+        predictions_difference = predictions_difference.cpu()
+
+        gt_hash = sha1(ground_truth.numpy()).hexdigest()
         idx = str(self._indexer[gt_hash])
         self._indexer[gt_hash] += 1
 
