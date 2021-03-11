@@ -8,18 +8,19 @@ from __future__ import generator_stop
 import functools
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from concurrent import futures
+from concurrent.futures._base import as_completed
 from hashlib import sha1
 from pathlib import Path
 
-import torch
-from torch import nn
-import torch.nn.functional as F
-
-from scipy import ndimage
-from skimage.morphology import skeletonize
+import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import matplotlib.pyplot as plt
+import torch
+import torch.nn.functional as F
+from scipy import ndimage
+from skimage.morphology import skeletonize
+from torch import nn
 
 from src.config import Config
 
@@ -365,20 +366,21 @@ class SkeletonTemporalMiner(AbstractTripletMiner):
         return self._miner.get_triplets(embeddings, labels, prediction)
 
 
+def heatmap(array, save_path):
+    if array.shape != (32, 32):
+        array = array.view(32, 32)
+    sns.heatmap(array)
+    plt.title(save_path.name)
+    plt.savefig(save_path)
+    plt.close()
+
+
 class WrongPredictionsMiner(AbstractTripletMiner):
     def __init__(self):
         super().__init__()
         self._indexer = defaultdict(lambda: 0)
         self._path = Path('extra-data')
         self._path.mkdir(parents=True, exist_ok=True)
-
-    def _heatmap(self, array, save_path):
-        if array.shape != (32, 32):
-            array = array.view(32, 32)
-        sns.heatmap(array)
-        plt.title(save_path.name)
-        plt.savefig(save_path)
-        plt.close()
 
     def _save_predictions(self, predictions, ground_truth, predictions_difference):
         predictions = predictions.cpu()
@@ -392,10 +394,15 @@ class WrongPredictionsMiner(AbstractTripletMiner):
         path: Path = self._path / gt_hash / idx
         path.mkdir(parents=True, exist_ok=True)
 
-        np.savez_compressed(path / 'arrays.npz', predictions, ground_truth, predictions_difference)
-        self._heatmap(predictions, path / 'predictions.png')
-        self._heatmap(ground_truth, path / 'ground_truth.png')
-        self._heatmap(predictions_difference, path / 'difference.png')
+        with futures.ProcessPoolExecutor() as executor:
+            tasks = {executor.submit(np.savez_compressed, path / 'arrays.npz', predictions, ground_truth,
+                                     predictions_difference),
+                     executor.submit(heatmap, predictions, path / 'predictions.png'),
+                     executor.submit(heatmap, ground_truth, path / 'ground_truth.png'),
+                     executor.submit(heatmap, predictions_difference, path / 'difference.png'),
+                     }
+            for task in as_completed(tasks):
+                _ = task.result()
 
     def get_triplets(self, batched_embeddings, batched_labels, prediction):
         batched_prediction = prediction
