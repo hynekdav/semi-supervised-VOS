@@ -7,6 +7,9 @@ from __future__ import generator_stop
 
 import functools
 from abc import ABC, abstractmethod
+from collections import defaultdict
+from hashlib import sha1
+from pathlib import Path
 
 import torch
 from torch import nn
@@ -15,6 +18,8 @@ import torch.nn.functional as F
 from scipy import ndimage
 from skimage.morphology import skeletonize
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from src.config import Config
 
@@ -361,6 +366,33 @@ class SkeletonTemporalMiner(AbstractTripletMiner):
 
 
 class WrongPredictionsMiner(AbstractTripletMiner):
+    def __init__(self):
+        super().__init__()
+        self._indexer = defaultdict(lambda: 0)
+        self._path = Path('extra-data')
+        self._path.mkdir(parents=True, exist_ok=True)
+
+    def _heatmap(self, array, save_path):
+        if array.shape != (32, 32):
+            array = array.view(32, 32)
+        sns.heatmap(array)
+        plt.title(save_path.name)
+        plt.savefig(save_path)
+        plt.close()
+
+    def _save_predictions(self, predictions, ground_truth, predictions_difference):
+        gt_hash = sha1(ground_truth.cpu().numpy()).hexdigest()
+        idx = str(self._indexer[gt_hash])
+        self._indexer[gt_hash] += 1
+
+        path: Path = self._path / gt_hash / idx
+        path.mkdir(parents=True, exist_ok=True)
+
+        np.savez_compressed(path / 'arrays.npz', predictions, ground_truth, predictions_difference)
+        self._heatmap(predictions, path / 'predictions.png')
+        self._heatmap(ground_truth, path / 'ground_truth.png')
+        self._heatmap(predictions_difference, path / 'difference.png')
+
     def get_triplets(self, batched_embeddings, batched_labels, prediction):
         batched_prediction = prediction
         all_anchors, all_positives, all_negatives = [], [], []
@@ -377,6 +409,7 @@ class WrongPredictionsMiner(AbstractTripletMiner):
             unique_labels = torch.unique(anchors_labels)
             positives = torch.zeros(size=anchors.shape, dtype=anchors.dtype, device=Config.DEVICE)
             negatives = torch.zeros(size=anchors.shape, dtype=anchors.dtype, device=Config.DEVICE)
+            self._save_predictions(prediction, labels, difference)
 
             for label in unique_labels:
                 current_anchors = anchors_labels == label

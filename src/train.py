@@ -14,7 +14,8 @@ from tqdm import tqdm
 
 from src.config import Config
 from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLossWithMiner
-from src.model.triplet_miners import get_miner, TemporalMiner, OneBackOneAheadMiner, SkeletonTemporalMiner
+from src.model.triplet_miners import get_miner, TemporalMiner, OneBackOneAheadMiner, SkeletonTemporalMiner, \
+    WrongPredictionsMiner
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.early_stopping import EarlyStopping
@@ -271,8 +272,8 @@ def step(loader, model, criterion, optimizer, epoch, centroids, batches, mode='t
                 extra_embeddings = extra_embeddings.reshape(batch_size, feature_dim, 5 * 32, 32)
                 extra_labels = annotation_input[:, -5:, :, :].permute((0, 2, 1, 3))
                 extra_labels = extra_labels.reshape(batch_size, 5 * 32, 32)
-
-                pass
+            elif isinstance(criterion._miner, WrongPredictionsMiner):
+                torch.manual_seed(42)  # to make sure we get same sequence every time
 
         ref_label = torch.zeros(batch_size, num_frames - 1, centroids.shape[0], H_d, W_d).to(
             Config.DEVICE).scatter_(
