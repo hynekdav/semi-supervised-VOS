@@ -387,7 +387,7 @@ class WrongPredictionsMiner(AbstractTripletMiner):
         ground_truth = ground_truth.cpu()
         predictions_difference = predictions_difference.cpu()
 
-        gt_hash = sha1(ground_truth.numpy()).hexdigest()
+        gt_hash = sha1(ground_truth.numpy().astype(np.int)).hexdigest()
         idx = str(self._indexer[gt_hash])
         self._indexer[gt_hash] += 1
 
