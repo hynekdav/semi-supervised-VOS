@@ -402,7 +402,10 @@ class WrongPredictionsMiner(AbstractTripletMiner):
                      executor.submit(heatmap, predictions_difference, path / 'difference.png'),
                      }
             for task in as_completed(tasks):
-                _ = task.result()
+                try:
+                    _ = task.result(timeout=2.5)
+                except TimeoutError:
+                    continue
 
     def get_triplets(self, batched_embeddings, batched_labels, prediction):
         batched_prediction = prediction
