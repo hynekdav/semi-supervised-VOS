@@ -108,7 +108,7 @@ class TripletLossWithMiner(nn.Module):
         self._miner = miner
         self._weights = weights
 
-    def forward(self, ref, target, ref_label, target_label, extra_embeddings=None, extra_labels=None):
+    def forward(self, ref, target, ref_label, target_label, extra_embeddings=None, extra_labels=None, extra=None):
         """
         let Nt = num of target pixels, Nr = num of ref pixels
         :param ref: (batchSize, num_ref, feature_dim, H, W)
@@ -124,7 +124,7 @@ class TripletLossWithMiner(nn.Module):
         if extra_embeddings is not None and extra_labels is not None:
             target = extra_embeddings
             target_label = extra_labels
-        anchors, positives, negatives = self._miner.get_triplets(target, target_label, prediction=prediction)
+        anchors, positives, negatives = self._miner.get_triplets(target, target_label, prediction=prediction, extra=extra)
 
         if anchors.numel() != 0:
             metric_loss = self._triplet_loss(anchors, positives, negatives)

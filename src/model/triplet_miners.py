@@ -380,16 +380,16 @@ class WrongPredictionsMiner(AbstractTripletMiner):
         self._path = Path('extra-data')
         self._path.mkdir(parents=True, exist_ok=True)
 
-    def _save_predictions(self, predictions, ground_truth, predictions_difference):
+    def _save_predictions(self, predictions, ground_truth, predictions_difference, extra):
         predictions = predictions.cpu()
         ground_truth = ground_truth.cpu()
         predictions_difference = predictions_difference.cpu()
 
-        gt_hash = sha1(ground_truth.numpy().astype(np.int)).hexdigest()
-        idx = str(self._indexer[gt_hash])
-        self._indexer[gt_hash] += 1
+        extra = str(extra)
+        idx = str(self._indexer[extra])
+        self._indexer[extra] += 1
 
-        path: Path = self._path / gt_hash / idx
+        path: Path = self._path / extra / idx
         path.mkdir(parents=True, exist_ok=True)
 
         np.savez_compressed(path / 'arrays.npz', predictions, ground_truth, predictions_difference)
@@ -397,7 +397,7 @@ class WrongPredictionsMiner(AbstractTripletMiner):
         heatmap(ground_truth, path / 'ground_truth.png')
         heatmap(predictions_difference, path / 'difference.png')
 
-    def get_triplets(self, batched_embeddings, batched_labels, prediction):
+    def get_triplets(self, batched_embeddings, batched_labels, prediction, extra):
         batched_prediction = prediction
         all_anchors, all_positives, all_negatives = [], [], []
         feature_dim = batched_embeddings.shape[1]
@@ -413,7 +413,7 @@ class WrongPredictionsMiner(AbstractTripletMiner):
             unique_labels = torch.unique(anchors_labels)
             positives = torch.zeros(size=anchors.shape, dtype=anchors.dtype, device=Config.DEVICE)
             negatives = torch.zeros(size=anchors.shape, dtype=anchors.dtype, device=Config.DEVICE)
-            self._save_predictions(prediction, labels, difference)
+            self._save_predictions(prediction, labels, difference, extra)
 
             for label in unique_labels:
                 current_anchors = anchors_labels == label
