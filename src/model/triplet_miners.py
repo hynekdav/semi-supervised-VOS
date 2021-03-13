@@ -364,11 +364,18 @@ class SkeletonTemporalMiner(AbstractTripletMiner):
         return self._miner.get_triplets(embeddings, labels, prediction)
 
 
-def heatmap(array, save_path):
+def heatmap(array, save_path, epoch_idx):
     if array.shape != (32, 32):
         array = array.view(32, 32)
     sns.heatmap(array)
-    plt.title(save_path.name)
+    plt.title(f'{save_path.stem} - epoch {epoch_idx}')
+    plt.savefig(save_path)
+    plt.close()
+
+
+def distribution(array, save_path, epoch_idx):
+    sns.distplot(array, bins=100)
+    plt.title(f'{save_path.stem} - epoch {epoch_idx}')
     plt.savefig(save_path)
     plt.close()
 
@@ -380,22 +387,25 @@ class WrongPredictionsMiner(AbstractTripletMiner):
         self._path = Path('extra-data')
         self._path.mkdir(parents=True, exist_ok=True)
 
-    def _save_predictions(self, predictions, ground_truth, predictions_difference, extra):
+    def _save_predictions(self, idx, predictions, ground_truth, predictions_difference, extra):
         predictions = predictions.cpu()
         ground_truth = ground_truth.cpu()
         predictions_difference = predictions_difference.cpu()
-
-        extra = str(extra)
-        idx = str(self._indexer[extra])
-        self._indexer[extra] += 1
 
         path: Path = self._path / extra / idx
         path.mkdir(parents=True, exist_ok=True)
 
         np.savez_compressed(path / 'arrays.npz', predictions, ground_truth, predictions_difference)
-        heatmap(predictions, path / 'predictions.png')
-        heatmap(ground_truth, path / 'ground_truth.png')
-        heatmap(predictions_difference, path / 'difference.png')
+        heatmap(predictions, path / 'predictions.png', idx)
+        heatmap(ground_truth, path / 'ground_truth.png', idx)
+        heatmap(predictions_difference, path / 'difference.png', idx)
+
+    def _save_distributions(self, idx, all_positive_similarities, all_negative_similarities, extra):
+        path: Path = self._path / extra / idx
+        path.mkdir(parents=True, exist_ok=True)
+
+        distribution(all_positive_similarities, path / 'positive_similarities.png', idx)
+        distribution(all_negative_similarities, path / 'negative_similarities.png', idx)
 
     def get_triplets(self, batched_embeddings, batched_labels, prediction, extra):
         batched_prediction = prediction
@@ -413,8 +423,9 @@ class WrongPredictionsMiner(AbstractTripletMiner):
             unique_labels = torch.unique(anchors_labels)
             positives = torch.zeros(size=anchors.shape, dtype=anchors.dtype, device=Config.DEVICE)
             negatives = torch.zeros(size=anchors.shape, dtype=anchors.dtype, device=Config.DEVICE)
-            self._save_predictions(prediction, labels, difference, extra)
 
+            all_positive_similarities = []
+            all_negative_similarities = []
             for label in unique_labels:
                 current_anchors = anchors_labels == label
                 indexer = torch.nonzero(current_anchors).squeeze()
@@ -435,6 +446,16 @@ class WrongPredictionsMiner(AbstractTripletMiner):
 
                 positives[indexer] = current_positives
                 negatives[indexer] = current_negatives
+
+                all_positive_similarities.extend(positive_similarities.reshape(-1).detach().cpu().numpy().tolist())
+                all_negative_similarities.extend(negative_similarities.reshape(-1).detach().cpu().numpy().tolist())
+
+            if extra % 100 == 0 and extra > 0:
+                _extra = str(extra)
+                idx = str(self._indexer[_extra])
+                self._indexer[_extra] += 1
+                self._save_predictions(idx, prediction, labels, difference, _extra)
+                self._save_distributions(idx, all_positive_similarities, all_negative_similarities, _extra)
 
             keep = positives.abs().sum(dim=1).bool()
 
