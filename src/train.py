@@ -130,15 +130,15 @@ def train_command(frame_num, training, validation, resume, save_model, epochs, b
     for epoch in tqdm(range(start_epoch, start_epoch + epochs), desc='Training.'):
         torch.manual_seed(42)
         train_loss = step(train_loader, model, criterion, optimizer, epoch, centroids, train_batches, mode='train')
-        # validation_loss = step(validation_loader, model, criterion, None, epoch, centroids, validation_batches,
-        #                       mode='val')
+        validation_loss = step(validation_loader, model, criterion, None, epoch, centroids, validation_batches,
+                              mode='val')
         scheduler.step()
 
-        # if early_stopper(validation_loss, epoch, model):
-        #     logger.info('Early stopping stopped the training.')
-        #     break
+        if early_stopper(validation_loss, epoch, model):
+            logger.info('Early stopping stopped the training.')
+            break
 
-        checkpoint_name = 'checkpoint-epoch-{:03d}-{:5f}-{:5f}.pth.tar'.format(epoch, train_loss, 0)  # validation_loss)
+        checkpoint_name = 'checkpoint-epoch-{:03d}-{:5f}-{:5f}.pth.tar'.format(epoch, train_loss, validation_loss)
         save_path = save_model / checkpoint_name
         torch.save({
             'epoch': epoch + 1,

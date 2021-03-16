@@ -407,7 +407,7 @@ class WrongPredictionsMiner(AbstractTripletMiner):
         distribution(all_positive_similarities, path / 'positive_similarities.png', idx)
         distribution(all_negative_similarities, path / 'negative_similarities.png', idx)
 
-    def get_triplets(self, batched_embeddings, batched_labels, prediction, extra):
+    def get_triplets(self, batched_embeddings, batched_labels, prediction):
         batched_prediction = prediction
         all_anchors, all_positives, all_negatives = [], [], []
         feature_dim = batched_embeddings.shape[1]
@@ -450,12 +450,12 @@ class WrongPredictionsMiner(AbstractTripletMiner):
                 all_positive_similarities.extend(positive_similarities.reshape(-1).detach().cpu().numpy().tolist())
                 all_negative_similarities.extend(negative_similarities.reshape(-1).detach().cpu().numpy().tolist())
 
-            if extra % 100 == 0 and extra > 0:
-                _extra = str(extra)
-                idx = str(self._indexer[_extra])
-                self._indexer[_extra] += 1
-                self._save_predictions(idx, prediction, labels, difference, _extra)
-                self._save_distributions(idx, all_positive_similarities, all_negative_similarities, _extra)
+            # if extra % 100 == 0 and extra > 0:
+            #     _extra = str(extra)
+            #     idx = str(self._indexer[_extra])
+            #     self._indexer[_extra] += 1
+            #     self._save_predictions(idx, prediction, labels, difference, _extra)
+            #     self._save_distributions(idx, all_positive_similarities, all_negative_similarities, _extra)
 
             keep = positives.abs().sum(dim=1).bool()
 

@@ -124,7 +124,7 @@ class TripletLossWithMiner(nn.Module):
         if extra_embeddings is not None and extra_labels is not None:
             target = extra_embeddings
             target_label = extra_labels
-        anchors, positives, negatives = self._miner.get_triplets(target, target_label, prediction=prediction, extra=extra)
+        anchors, positives, negatives = self._miner.get_triplets(target, target_label, prediction=prediction)
 
         if anchors.numel() != 0:
             metric_loss = self._triplet_loss(anchors, positives, negatives)
