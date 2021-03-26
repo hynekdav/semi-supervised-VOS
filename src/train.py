@@ -134,9 +134,9 @@ def train_command(frame_num, training, validation, resume, save_model, epochs, b
                               mode='val')
         scheduler.step()
 
-        if early_stopper(validation_loss, epoch, model):
-            logger.info('Early stopping stopped the training.')
-            break
+        # if early_stopper(validation_loss, epoch, model):
+        #     logger.info('Early stopping stopped the training.')
+        #     break
 
         checkpoint_name = 'checkpoint-epoch-{:03d}-{:5f}-{:5f}.pth.tar'.format(epoch, train_loss, validation_loss)
         save_path = save_model / checkpoint_name
