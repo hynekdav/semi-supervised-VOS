@@ -278,7 +278,7 @@ def step(loader, model, criterion, optimizer, epoch, centroids, batches, mode='t
             Config.DEVICE).scatter_(
             2, ref_label.unsqueeze(2), 1)
 
-        loss = criterion(ref, target, ref_label, target_label, extra_embeddings, extra_labels, i)
+        loss = criterion(ref, target, ref_label, target_label, extra_embeddings, extra_labels, False)
         mean_loss.append(loss.item())
 
         if mode == 'train':
