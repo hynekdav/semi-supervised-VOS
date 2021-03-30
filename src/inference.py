@@ -79,8 +79,9 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
         if frame_idx == 0:
             input_l = input[0].to(Config.DEVICE)
             input_r = input[1].to(Config.DEVICE)
-            feats_history_l = model(input_l)
-            feats_history_r = model(input_r)
+            with torch.cuda.amp.autocast():
+                feats_history_l = model(input_l)
+                feats_history_r = model(input_r)
             first_annotation = annotation_dir / curr_video / '00000.png'
             label_history_l, label_history_r, d, palette, weight_dense, weight_sparse = prepare_first_frame(curr_video,
                                                                                                             save,
@@ -95,8 +96,9 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
 
         input_l = input[0].to(Config.DEVICE)
         input_r = input[1].to(Config.DEVICE)
-        features_l = model(input_l)
-        features_r = model(input_r)
+        with torch.cuda.amp.autocast():
+            features_l = model(input_l)
+            features_r = model(input_r)
 
         (_, feature_dim, H_d, W_d) = features_l.shape
         prediction_l = predict(feats_history_l,
@@ -114,8 +116,8 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
         feats_history_l = torch.cat((feats_history_l, features_l), 0)
 
         prediction_l = torch.nn.functional.interpolate(prediction_l.view(1, d, H_d, W_d),
-                                                     size=(H, W),
-                                                     mode='nearest')
+                                                       size=(H, W),
+                                                       mode='nearest')
         prediction_l = torch.argmax(prediction_l, 1).squeeze()  # (1, H, W)
 
         prediction_r = predict(feats_history_r,
@@ -134,8 +136,8 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
 
         # 1. upsample, 2. argmax
         prediction_r = torch.nn.functional.interpolate(prediction_r.view(1, d, H_d, W_d),
-                                                     size=(H, W),
-                                                     mode='nearest')
+                                                       size=(H, W),
+                                                       mode='nearest')
         prediction_r = torch.argmax(prediction_r, 1).squeeze()  # (1, H, W)
         prediction_r = torch.fliplr(prediction_r).cpu()
         prediction_l = prediction_l.cpu()
@@ -143,7 +145,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
         last_video = curr_video
         frame_idx += 1
 
-        #TODO merging predictions
+        # TODO merging predictions
         prediction = torch.maximum(prediction_l, prediction_r)
 
         if frame_idx == 2:
