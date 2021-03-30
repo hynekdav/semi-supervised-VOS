@@ -89,4 +89,5 @@ def load_model(model, checkpoint):
     except Exception:
         model = torch.nn.DataParallel(model)
         model = load_model_impl(model, checkpoint)
+        model = model.module
     return model

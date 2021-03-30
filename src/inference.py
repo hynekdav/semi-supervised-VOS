@@ -8,7 +8,6 @@ from pathlib import Path
 import click
 import numpy as np
 import torch
-import torch.nn as nn
 from loguru import logger
 from tqdm import tqdm
 
