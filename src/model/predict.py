@@ -86,56 +86,21 @@ def sample_frames(frame_idx,
     return torch.Tensor(sample_idx).long().to(Config.DEVICE)
 
 
-def predict_eq7(ref,
-                target,
-                ref_label,
-                weight_dense,
-                weight_sparse,
-                frame_idx,
-                range,
-                ref_num, temp=None):
-    """
-    The Predict Function.
-    :param ref: (N, feature_dim, H, W)
-    :param target: (feature_dim, H, W)
-    :param ref_label: (d, N, H*W)
-    :param weight_dense: (H*W, H*W)
-    :param weight_sparse: (H*W, H*W)
-    :param frame_idx:
-    :return: (d, H, W)
-    """
-    # sample frames from history features
-    d = ref_label.shape[0]
-    sample_idx = sample_frames(frame_idx, range, ref_num)
-    ref_selected = ref.index_select(0, sample_idx)
-    ref_label_selected = ref_label.index_select(1, sample_idx).view(d, -1)
-    ref_label_selected = torch.argmax(ref_label_selected, dim=0).reshape(sample_idx.numel(), -1)
-
-    # get denominator
-    (num_ref, feature_dim, H, W) = ref_selected.shape
-    ref_selected = ref_selected.permute(0, 2, 3, 1).reshape(num_ref, -1, feature_dim)
-    target = target.reshape(-1, feature_dim).unsqueeze(1)
-    denominator = torch.zeros(target.shape[0], device=Config.DEVICE)
-    for ref in ref_selected:
-        ref = ref.unsqueeze(-1)
-        res = torch.bmm(target, ref).squeeze().exp()
-        denominator = denominator + res
-
-    prediction = torch.zeros(denominator.shape, device=Config.DEVICE)
-    for reference_embedding, reference_labels in zip(ref_selected, ref_label_selected):
-        prediction = prediction + (torch.bmm(target, reference_embedding.unsqueeze(-1)).squeeze().exp() \
-                     / denominator) * reference_labels
-
-    prediction = prediction.view(-1, H * W).floor().long()
-    prediction = index_to_onehot(prediction.view(-1), d)
-    return prediction
+def get_labels(label, d, H, W, H_d, W_d):
+    label_1hot = index_to_onehot(label.view(-1), d).reshape(1, d, H, W)
+    label_1hot = torch.nn.functional.interpolate(label_1hot,
+                                                 size=(H_d, W_d),
+                                                 mode='nearest')
+    label_1hot = label_1hot.reshape(d, -1).unsqueeze(1)
+    return label_1hot
 
 
 def prepare_first_frame(curr_video,
                         save_prediction,
                         annotation,
                         sigma1=8,
-                        sigma2=21):
+                        sigma2=21,
+                        flipped_labels=False):
     first_annotation = Image.open(annotation)
     (H, W) = np.asarray(first_annotation).shape
     H_d = int(np.ceil(H * Config.SCALE))
@@ -144,11 +109,10 @@ def prepare_first_frame(curr_video,
     label = np.asarray(first_annotation)
     d = np.max(label) + 1
     label = torch.Tensor(label).long().to(Config.DEVICE)  # (1, H, W)
-    label_1hot = index_to_onehot(label.view(-1), d).reshape(1, d, H, W)
-    label_1hot = torch.nn.functional.interpolate(label_1hot,
-                                                 size=(H_d, W_d),
-                                                 mode='nearest')
-    label_1hot = label_1hot.reshape(d, -1).unsqueeze(1)
+    label_1hot = get_labels(label, d, H, W, H_d, W_d)
+    if flipped_labels:
+        label_1hot_flipped = get_labels(torch.fliplr(label), d, H, W, H_d, W_d)
+
     weight_dense = get_spatial_weight((H_d, W_d), sigma1)
     weight_sparse = get_spatial_weight((H_d, W_d), sigma2)
 
@@ -160,6 +124,8 @@ def prepare_first_frame(curr_video,
             os.makedirs(save_path)
         first_annotation.save(os.path.join(save_path, '00000.png'))
 
+    if flipped_labels:
+        return label_1hot, label_1hot_flipped, d, palette, weight_dense, weight_sparse
     return label_1hot, d, palette, weight_dense, weight_sparse
 
 

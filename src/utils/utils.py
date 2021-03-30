@@ -68,17 +68,25 @@ def index_to_onehot(idx, d):
 
 
 def load_model(model, checkpoint):
-    checkpoint_path = checkpoint
-    if checkpoint is not None:
-        if os.path.isfile(checkpoint):
-            logger.info("=> loading checkpoint '{}'".format(checkpoint))
-            checkpoint = torch.load(checkpoint, map_location=Config.DEVICE)
-            if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
-                model.load_state_dict(checkpoint['state_dict'])
+    def load_model_impl(model, checkpoint):
+        checkpoint_path = checkpoint
+        if checkpoint is not None:
+            if os.path.isfile(checkpoint):
+                logger.info("=> loading checkpoint '{}'".format(checkpoint))
+                checkpoint = torch.load(checkpoint, map_location=Config.DEVICE)
+                if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+                    model.load_state_dict(checkpoint['state_dict'])
+                else:
+                    model.load_state_dict(checkpoint)
+                logger.info("=> loaded checkpoint '{}'".format(checkpoint_path))
             else:
-                model.load_state_dict(checkpoint)
-            logger.info("=> loaded checkpoint '{}'".format(checkpoint_path))
-        else:
-            logger.info("=> no checkpoint found at '{}'".format(checkpoint_path))
-            exit(-1)
+                logger.info("=> no checkpoint found at '{}'".format(checkpoint_path))
+                exit(-1)
+        return model
+
+    try:
+        model = load_model_impl(model, checkpoint)
+    except Exception:
+        model = torch.nn.DataParallel(model)
+        model = load_model_impl(model, checkpoint)
     return model

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from PIL import Image
+from PIL import Image, ImageOps
 from loguru import logger
 from torchvision import datasets
 from torchvision.datasets.folder import make_dataset
@@ -118,7 +118,8 @@ class InferenceDataset(datasets.ImageFolder):
                  root,
                  transform=None,
                  target_transform=None,
-                 disable=False):
+                 disable=False,
+                 horizontal_flip=False):
         super(InferenceDataset, self).__init__(root,
                                                transform=transform,
                                                target_transform=target_transform)
@@ -133,13 +134,18 @@ class InferenceDataset(datasets.ImageFolder):
                 self.img_bytes.append(f.read())
         logger.info(f'Loaded {len(self.img_bytes)} inference images.')
         self.idx_to_class = {v: k for k, v in self.class_to_idx.items()}
+        self.horizontal_flip = horizontal_flip
 
     def __getitem__(self, index):
         path, video_index = self.imgs[index]
         img = Image.open(BytesIO(self.img_bytes[index]))
         img = img.convert('RGB')
         normalized = self.rgb_normalize(np.asarray(img))
-        return normalized, self.idx_to_class[video_index]
+        if self.horizontal_flip:
+            img = ImageOps.mirror(img)
+            normalized_flipped = self.rgb_normalize(np.asarray(img))
+            return (normalized, normalized_flipped), self.idx_to_class[video_index]
+        return (normalized,), self.idx_to_class[video_index]
 
     def __len__(self):
         return len(self.imgs)
