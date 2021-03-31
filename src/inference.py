@@ -61,98 +61,101 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
 
     last_video = annotation_list[0]
     frame_idx, video_idx = 0, 0
-    for input, curr_video in tqdm(inference_loader, total=len(inference_dataset), disable=disable):
-        curr_video = curr_video[0]
-        if curr_video != last_video:
-            # save prediction
-            pred_visualize = pred_visualize.cpu().numpy()
-            for f in range(1, frame_idx):
-                save_name = str(f).zfill(5)
-                video_name = last_video
-                save_prediction(np.asarray(pred_visualize[f - 1], dtype=np.int32), palette, save, save_name, video_name)
+    with torch.no_grad():
+        for input, curr_video in tqdm(inference_loader, total=len(inference_dataset), disable=disable):
+            curr_video = curr_video[0]
+            if curr_video != last_video:
+                # save prediction
+                pred_visualize = pred_visualize.cpu().numpy()
+                for f in range(1, frame_idx):
+                    save_name = str(f).zfill(5)
+                    video_name = last_video
+                    save_prediction(np.asarray(pred_visualize[f - 1], dtype=np.int32), palette, save, save_name,
+                                    video_name)
 
-            frame_idx = 0
-            # logger.info("End of video %d. Processing a new annotation...\n" % (video_idx + 1))
-            video_idx += 1
-        if frame_idx == 0:
+                frame_idx = 0
+                # logger.info("End of video %d. Processing a new annotation...\n" % (video_idx + 1))
+                video_idx += 1
+            if frame_idx == 0:
+                input_l = input[0].to(Config.DEVICE)
+                input_r = input[1].to(Config.DEVICE)
+                with torch.cuda.amp.autocast():
+                    feats_history_l = model(input_l)
+                    feats_history_r = model(input_r)
+                first_annotation = annotation_dir / curr_video / '00000.png'
+                label_history_l, label_history_r, d, palette, weight_dense, weight_sparse = prepare_first_frame(
+                    curr_video,
+                    save,
+                    first_annotation,
+                    sigma_1,
+                    sigma_2,
+                    flipped_labels=True)
+                frame_idx += 1
+                last_video = curr_video
+                continue
+            (batch_size, num_channels, H, W) = input[0].shape
+
             input_l = input[0].to(Config.DEVICE)
             input_r = input[1].to(Config.DEVICE)
             with torch.cuda.amp.autocast():
-                feats_history_l = model(input_l)
-                feats_history_r = model(input_r)
-            first_annotation = annotation_dir / curr_video / '00000.png'
-            label_history_l, label_history_r, d, palette, weight_dense, weight_sparse = prepare_first_frame(curr_video,
-                                                                                                            save,
-                                                                                                            first_annotation,
-                                                                                                            sigma_1,
-                                                                                                            sigma_2,
-                                                                                                            flipped_labels=True)
-            frame_idx += 1
+                features_l = model(input_l)
+                features_r = model(input_r)
+
+            (_, feature_dim, H_d, W_d) = features_l.shape
+            prediction_l = predict(feats_history_l,
+                                   features_l[0],
+                                   label_history_l,
+                                   weight_dense,
+                                   weight_sparse,
+                                   frame_idx,
+                                   frame_range,
+                                   ref_num,
+                                   temperature)
+            # Store all frames' features
+            new_label_l = index_to_onehot(torch.argmax(prediction_l, 0), d).unsqueeze(1)
+            label_history_l = torch.cat((label_history_l, new_label_l), 1)
+            feats_history_l = torch.cat((feats_history_l, features_l), 0)
+
+            prediction_l = torch.nn.functional.interpolate(prediction_l.view(1, d, H_d, W_d),
+                                                           size=(H, W),
+                                                           mode='nearest')
+            prediction_l = torch.argmax(prediction_l, 1).squeeze()  # (1, H, W)
+
+            prediction_r = predict(feats_history_r,
+                                   features_r[0],
+                                   label_history_r,
+                                   weight_dense,
+                                   weight_sparse,
+                                   frame_idx,
+                                   frame_range,
+                                   ref_num,
+                                   temperature)
+            # Store all frames' features
+            new_label_r = index_to_onehot(torch.argmax(prediction_r, 0), d).unsqueeze(1)
+            label_history_r = torch.cat((label_history_r, new_label_r), 1)
+            feats_history_r = torch.cat((feats_history_r, features_r), 0)
+
+            # 1. upsample, 2. argmax
+            prediction_r = torch.nn.functional.interpolate(prediction_r.view(1, d, H_d, W_d),
+                                                           size=(H, W),
+                                                           mode='nearest')
+            prediction_r = torch.argmax(prediction_r, 1).squeeze()  # (1, H, W)
+            prediction_r = torch.fliplr(prediction_r).cpu()
+            prediction_l = prediction_l.cpu()
+
             last_video = curr_video
-            continue
-        (batch_size, num_channels, H, W) = input[0].shape
+            frame_idx += 1
 
-        input_l = input[0].to(Config.DEVICE)
-        input_r = input[1].to(Config.DEVICE)
-        with torch.cuda.amp.autocast():
-            features_l = model(input_l)
-            features_r = model(input_r)
+            # TODO merging predictions
+            prediction = torch.maximum(prediction_l, prediction_r).unsqueeze(0).cpu().half()
 
-        (_, feature_dim, H_d, W_d) = features_l.shape
-        prediction_l = predict(feats_history_l,
-                               features_l[0],
-                               label_history_l,
-                               weight_dense,
-                               weight_sparse,
-                               frame_idx,
-                               frame_range,
-                               ref_num,
-                               temperature)
-        # Store all frames' features
-        new_label_l = index_to_onehot(torch.argmax(prediction_l, 0), d).unsqueeze(1)
-        label_history_l = torch.cat((label_history_l, new_label_l), 1)
-        feats_history_l = torch.cat((feats_history_l, features_l), 0)
+            if frame_idx == 2:
+                pred_visualize = prediction
+            else:
+                pred_visualize = torch.cat((pred_visualize, prediction), 0)
 
-        prediction_l = torch.nn.functional.interpolate(prediction_l.view(1, d, H_d, W_d),
-                                                       size=(H, W),
-                                                       mode='nearest')
-        prediction_l = torch.argmax(prediction_l, 1).squeeze()  # (1, H, W)
-
-        prediction_r = predict(feats_history_r,
-                               features_r[0],
-                               label_history_r,
-                               weight_dense,
-                               weight_sparse,
-                               frame_idx,
-                               frame_range,
-                               ref_num,
-                               temperature)
-        # Store all frames' features
-        new_label_r = index_to_onehot(torch.argmax(prediction_r, 0), d).unsqueeze(1)
-        label_history_r = torch.cat((label_history_r, new_label_r), 1)
-        feats_history_r = torch.cat((feats_history_r, features_r), 0)
-
-        # 1. upsample, 2. argmax
-        prediction_r = torch.nn.functional.interpolate(prediction_r.view(1, d, H_d, W_d),
-                                                       size=(H, W),
-                                                       mode='nearest')
-        prediction_r = torch.argmax(prediction_r, 1).squeeze()  # (1, H, W)
-        prediction_r = torch.fliplr(prediction_r).cpu()
-        prediction_l = prediction_l.cpu()
-
-        last_video = curr_video
-        frame_idx += 1
-
-        # TODO merging predictions
-        prediction = torch.maximum(prediction_l, prediction_r).unsqueeze(0).cpu().half()
-
-        if frame_idx == 2:
-            pred_visualize = prediction
-        else:
-            pred_visualize = torch.cat((pred_visualize, prediction), 0)
-
-        del prediction_r, prediction_l, features_r, features_l, new_label_r, new_label_l
-        gc.collect()
+            del prediction_r, prediction_l, features_r, features_l, new_label_r, new_label_l
+            gc.collect()
 
     # save last video's prediction
     pred_visualize = pred_visualize.cpu().numpy()
