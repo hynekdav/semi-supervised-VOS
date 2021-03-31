@@ -1,7 +1,6 @@
 # -*- encoding: utf-8 -*-
 # ! python3
-
-
+import gc
 import os
 from pathlib import Path
 
@@ -54,9 +53,9 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
     inference_loader = torch.utils.data.DataLoader(inference_dataset,
                                                    batch_size=1,
                                                    shuffle=False,
-                                                   num_workers=4)
+                                                   num_workers=1)
 
-    global pred_visualize, palette, d, feats_history_l, feats_history_r, label_history_l, label_history_r, weight_dense, weight_sparse
+    # global pred_visualize, palette, d, feats_history_l, feats_history_r, label_history_l, label_history_r, weight_dense, weight_sparse
     annotation_dir = Path(data) / 'Annotations/480p'
     annotation_list = sorted(os.listdir(annotation_dir))
 
@@ -145,12 +144,15 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
         frame_idx += 1
 
         # TODO merging predictions
-        prediction = torch.maximum(prediction_l, prediction_r).unsqueeze(0)
+        prediction = torch.maximum(prediction_l, prediction_r).unsqueeze(0).cpu().half()
 
         if frame_idx == 2:
             pred_visualize = prediction
         else:
             pred_visualize = torch.cat((pred_visualize, prediction), 0)
+
+        del prediction_r, prediction_l, features_r, features_l, new_label_r, new_label_l
+        gc.collect()
 
     # save last video's prediction
     pred_visualize = pred_visualize.cpu().numpy()

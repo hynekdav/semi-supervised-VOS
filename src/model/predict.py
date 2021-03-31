@@ -64,7 +64,7 @@ def predict(ref,
     global_similarity = global_similarity.view(-1, H * W)
 
     # get prediction
-    prediction = ref_label_selected.mm(global_similarity)
+    prediction = ref_label_selected.type(torch.float32).mm(global_similarity)
     return prediction
 
 
@@ -92,7 +92,7 @@ def get_labels(label, d, H, W, H_d, W_d):
                                                  size=(H_d, W_d),
                                                  mode='nearest')
     label_1hot = label_1hot.reshape(d, -1).unsqueeze(1)
-    return label_1hot
+    return label_1hot.type(torch.int32)
 
 
 def prepare_first_frame(curr_video,
@@ -113,8 +113,8 @@ def prepare_first_frame(curr_video,
     if flipped_labels:
         label_1hot_flipped = get_labels(torch.fliplr(label), d, H, W, H_d, W_d)
 
-    weight_dense = get_spatial_weight((H_d, W_d), sigma1)
-    weight_sparse = get_spatial_weight((H_d, W_d), sigma2)
+    weight_dense = get_spatial_weight((H_d, W_d), sigma1).type(torch.float16)
+    weight_sparse = get_spatial_weight((H_d, W_d), sigma2).type(torch.float16)
 
     if save_prediction is not None:
         if not os.path.exists(save_prediction):
