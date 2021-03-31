@@ -145,7 +145,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
         frame_idx += 1
 
         # TODO merging predictions
-        prediction = torch.maximum(prediction_l, prediction_r)
+        prediction = torch.maximum(prediction_l, prediction_r).unsqueeze(0)
 
         if frame_idx == 2:
             pred_visualize = prediction
