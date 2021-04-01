@@ -110,7 +110,7 @@ def prepare_first_frame(curr_video,
     label = torch.Tensor(label).long().to(Config.DEVICE)  # (1, H, W)
     label_1hot = get_labels(label, d, H, W, H_d, W_d)
     if flipped_labels:
-        label_1hot_flipped = get_labels(torch.flipud(label), d, H, W, H_d, W_d)
+        label_1hot_flipped = get_labels(torch.fliplr(label), d, H, W, H_d, W_d)
 
     weight_dense = get_spatial_weight((H_d, W_d), sigma1).type(torch.float16)
     weight_sparse = get_spatial_weight((H_d, W_d), sigma2).type(torch.float16)

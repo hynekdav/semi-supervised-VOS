@@ -138,7 +138,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
             # 1. upsample, 2. argmax
             prediction_r = F.interpolate(prediction_r.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
             prediction_r = torch.argmax(prediction_r, 1).squeeze()  # (1, H, W)
-            prediction_r = torch.flipud(prediction_r).cpu()
+            prediction_r = torch.fliplr(prediction_r).cpu()
             prediction_l = prediction_l.cpu()
 
             last_video = curr_video

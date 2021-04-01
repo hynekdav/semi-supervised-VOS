@@ -142,7 +142,7 @@ class InferenceDataset(datasets.ImageFolder):
         img = img.convert('RGB')
         normalized = self.rgb_normalize(np.asarray(img))
         if self.horizontal_flip:
-            img = ImageOps.flip(img)
+            img = ImageOps.mirror(img)
             normalized_flipped = self.rgb_normalize(np.asarray(img))
             return (normalized, normalized_flipped), self.idx_to_class[video_index]
         return (normalized,), self.idx_to_class[video_index]
