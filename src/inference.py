@@ -1,12 +1,12 @@
 # -*- encoding: utf-8 -*-
 # ! python3
-import gc
 import os
 from pathlib import Path
 
 import click
 import numpy as np
 import torch
+import torch.nn.functional as F
 from loguru import logger
 from tqdm import tqdm
 
@@ -136,9 +136,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
             feats_history_r = torch.cat((feats_history_r, features_r), 0)
 
             # 1. upsample, 2. argmax
-            prediction_r = torch.nn.functional.interpolate(prediction_r.view(1, d, H_d, W_d),
-                                                           size=(H, W),
-                                                           mode='nearest')
+            prediction_r = F.interpolate(prediction_r.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
             prediction_r = torch.argmax(prediction_r, 1).squeeze()  # (1, H, W)
             prediction_r = torch.fliplr(prediction_r).cpu()
             prediction_l = prediction_l.cpu()
@@ -153,9 +151,6 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
                 pred_visualize = prediction
             else:
                 pred_visualize = torch.cat((pred_visualize, prediction), 0)
-
-            del prediction_r, prediction_l, features_r, features_l, new_label_r, new_label_l
-            gc.collect()
 
     # save last video's prediction
     pred_visualize = pred_visualize.cpu().numpy()

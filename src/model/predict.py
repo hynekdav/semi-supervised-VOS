@@ -6,6 +6,7 @@ import os
 from typing import Optional
 
 import torch
+import torch.nn.functional as F
 import numpy as np
 
 from PIL import Image
@@ -88,9 +89,7 @@ def sample_frames(frame_idx,
 
 def get_labels(label, d, H, W, H_d, W_d):
     label_1hot = index_to_onehot(label.view(-1), d).reshape(1, d, H, W)
-    label_1hot = torch.nn.functional.interpolate(label_1hot,
-                                                 size=(H_d, W_d),
-                                                 mode='nearest')
+    label_1hot = F.interpolate(label_1hot, size=(H_d, W_d), mode='nearest')
     label_1hot = label_1hot.reshape(d, -1).unsqueeze(1)
     return label_1hot.type(torch.int32)
 
