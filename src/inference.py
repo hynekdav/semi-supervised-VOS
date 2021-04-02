@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 
 import click
-import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.utils.data
@@ -15,7 +14,8 @@ from src.config import Config
 from src.model.predict import predict, prepare_first_frame
 from src.model.vos_net import VOSNet
 from src.utils.datasets import InferenceDataset
-from src.utils.utils import save_prediction, index_to_onehot, load_model, save_predictions
+from src.utils.inference_utils import inference_hor_flip
+from src.utils.utils import index_to_onehot, load_model, save_predictions
 
 
 @click.command(name='inference')
@@ -62,96 +62,20 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
 
     # global pred_visualize, palette, d, feats_history_l, feats_history_r, label_history_l, label_history_r, weight_dense, weight_sparse
     annotation_dir = Path(data) / 'Annotations/480p'
-    annotation_list = sorted(os.listdir(annotation_dir))
+    annotation_list = sorted(list(annotation_dir.glob('*')))
+    last_video = annotation_list[0].name
 
-    last_video = annotation_list[0]
-    frame_idx, video_idx = 0, 0
     with torch.no_grad():
-        for input, (current_video,) in tqdm(inference_loader, total=len(inference_dataset), disable=disable):
-            if current_video != last_video:
-                # save prediction
-                pred_visualize = pred_visualize.cpu().numpy()
-                save_predictions(pred_visualize, palette, save, last_video)
+        if inference_strategy == 'single':
+            pass
+        elif inference_strategy == 'hor-flip':
+            inference_hor_flip(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
+                               sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
+        elif inference_strategy == 'ver-flip':
+            pass
+        elif inference_strategy == '2-scale':
+            pass
+        elif inference_strategy == '3-scale':
+            pass
 
-                frame_idx = 0
-                video_idx += 1
-            if frame_idx == 0:
-                input_l = input[0].to(Config.DEVICE)
-                input_r = input[1].to(Config.DEVICE)
-                with torch.cuda.amp.autocast():
-                    feats_history_l = model(input_l)
-                    feats_history_r = model(input_r)
-                first_annotation = annotation_dir / current_video / '00000.png'
-                label_history_l, label_history_r, d, palette, weight_dense, weight_sparse = prepare_first_frame(
-                    current_video,
-                    save,
-                    first_annotation,
-                    sigma_1,
-                    sigma_2,
-                    flipped_labels=True)
-                frame_idx += 1
-                last_video = current_video
-                continue
-            (batch_size, num_channels, H, W) = input[0].shape
-
-            input_l = input[0].to(Config.DEVICE)
-            input_r = input[1].to(Config.DEVICE)
-            with torch.cuda.amp.autocast():
-                features_l = model(input_l)
-                features_r = model(input_r)
-
-            (_, feature_dim, H_d, W_d) = features_l.shape
-            prediction_l = predict(feats_history_l,
-                                   features_l[0],
-                                   label_history_l,
-                                   weight_dense,
-                                   weight_sparse,
-                                   frame_idx,
-                                   frame_range,
-                                   ref_num,
-                                   temperature)
-            # Store all frames' features
-            new_label_l = index_to_onehot(torch.argmax(prediction_l, 0), d).unsqueeze(1)
-            label_history_l = torch.cat((label_history_l, new_label_l), 1)
-            feats_history_l = torch.cat((feats_history_l, features_l), 0)
-
-            prediction_l = torch.nn.functional.interpolate(prediction_l.view(1, d, H_d, W_d),
-                                                           size=(H, W),
-                                                           mode='nearest')
-            prediction_l = torch.argmax(prediction_l, 1).squeeze()  # (1, H, W)
-
-            prediction_r = predict(feats_history_r,
-                                   features_r[0],
-                                   label_history_r,
-                                   weight_dense,
-                                   weight_sparse,
-                                   frame_idx,
-                                   frame_range,
-                                   ref_num,
-                                   temperature)
-            # Store all frames' features
-            new_label_r = index_to_onehot(torch.argmax(prediction_r, 0), d).unsqueeze(1)
-            label_history_r = torch.cat((label_history_r, new_label_r), 1)
-            feats_history_r = torch.cat((feats_history_r, features_r), 0)
-
-            # 1. upsample, 2. argmax
-            prediction_r = F.interpolate(prediction_r.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
-            prediction_r = torch.argmax(prediction_r, 1).squeeze()  # (1, H, W)
-            prediction_r = torch.fliplr(prediction_r).cpu()
-            prediction_l = prediction_l.cpu()
-
-            last_video = current_video
-            frame_idx += 1
-
-            # TODO merging predictions
-            prediction = torch.maximum(prediction_l, prediction_r).unsqueeze(0).cpu().half()
-
-            if frame_idx == 2:
-                pred_visualize = prediction
-            else:
-                pred_visualize = torch.cat((pred_visualize, prediction), 0)
-
-    # save last video's prediction
-    pred_visualize = pred_visualize.cpu().numpy()
-    save_predictions(pred_visualize, palette, save, last_video)
     logger.info('Inference done.')

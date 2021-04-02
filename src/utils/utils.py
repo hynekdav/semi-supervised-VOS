@@ -3,12 +3,12 @@
 import os
 from pathlib import Path
 
+import numpy as np
 import torch
 from PIL import Image
+from loguru import logger
 
 from src.config import Config
-from loguru import logger
-import numpy as np
 
 
 class AverageMeter(object):
