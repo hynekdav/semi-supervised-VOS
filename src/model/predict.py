@@ -99,7 +99,7 @@ def prepare_first_frame(curr_video,
                         annotation,
                         sigma1=8,
                         sigma2=21,
-                        flipped_labels=False):
+                        inference_strategy='single'):
     first_annotation = Image.open(annotation)
     (H, W) = np.asarray(first_annotation).shape
     H_d = int(np.ceil(H * Config.SCALE))
@@ -109,8 +109,6 @@ def prepare_first_frame(curr_video,
     d = np.max(label) + 1
     label = torch.Tensor(label).long().to(Config.DEVICE)  # (1, H, W)
     label_1hot = get_labels(label, d, H, W, H_d, W_d)
-    if flipped_labels:
-        label_1hot_flipped = get_labels(torch.fliplr(label), d, H, W, H_d, W_d)
 
     weight_dense = get_spatial_weight((H_d, W_d), sigma1).type(torch.float16)
     weight_sparse = get_spatial_weight((H_d, W_d), sigma2).type(torch.float16)
@@ -123,8 +121,19 @@ def prepare_first_frame(curr_video,
             os.makedirs(save_path)
         first_annotation.save(os.path.join(save_path, '00000.png'))
 
-    if flipped_labels:
+    if inference_strategy == 'single':
+        return label_1hot, d, palette, weight_dense, weight_sparse
+    elif inference_strategy == 'hor-flip':
+        label_1hot_flipped = get_labels(torch.fliplr(label), d, H, W, H_d, W_d)
         return label_1hot, label_1hot_flipped, d, palette, weight_dense, weight_sparse
+    elif inference_strategy == 'ver-flip':
+        label_1hot_flipped = get_labels(torch.flipud(label), d, H, W, H_d, W_d)
+        return label_1hot, label_1hot_flipped, d, palette, weight_dense, weight_sparse
+    elif inference_strategy == '2-scale':
+        pass
+    elif inference_strategy == '3-scale':
+        pass
+
     return label_1hot, d, palette, weight_dense, weight_sparse
 
 
