@@ -41,7 +41,7 @@ def inference_single(model, inference_loader, total_len, annotation_dir, last_vi
             frame_idx += 1
             last_video = current_video
             continue
-        (batch_size, num_channels, H, W) = input[0].shape
+        (batch_size, num_channels, H, W) = input.shape
 
         input = input.to(Config.DEVICE)
         with torch.cuda.amp.autocast():
