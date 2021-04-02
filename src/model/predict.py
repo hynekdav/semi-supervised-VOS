@@ -144,8 +144,8 @@ def prepare_first_frame(curr_video,
 
 def get_spatial_weight(shape, sigma, t_loc: Optional[float] = None):
     """
-    Get soft spatial weights for similarity matrix.
-    :param shape: (H, W)
+    Get slarity matrix.
+    :param shape: (H, W)oft spatial weights for simi
     :param sigma:
     :return: (H*W, H*W)
     """
@@ -156,7 +156,7 @@ def get_spatial_weight(shape, sigma, t_loc: Optional[float] = None):
     d = index_matrix - index_matrix.unsqueeze(1)  # (H*W, H*W, 2)
     if t_loc is not None:
         d[d < t_loc] = 0.0
-    d = d.float().pow(2).sum(-1)  # (H*W, H*W)
+    d = d.half().pow(2).sum(-1)  # (H*W, H*W)
     w = (- d / sigma ** 2).exp()
 
     return w
