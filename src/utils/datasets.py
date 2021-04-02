@@ -119,7 +119,7 @@ class InferenceDataset(datasets.ImageFolder):
                  transform=None,
                  target_transform=None,
                  disable=False,
-                 horizontal_flip=False):
+                 inference_strategy='single'):
         super(InferenceDataset, self).__init__(root,
                                                transform=transform,
                                                target_transform=target_transform)
@@ -134,17 +134,22 @@ class InferenceDataset(datasets.ImageFolder):
                 self.img_bytes.append(f.read())
         logger.info(f'Loaded {len(self.img_bytes)} inference images.')
         self.idx_to_class = {v: k for k, v in self.class_to_idx.items()}
-        self.horizontal_flip = horizontal_flip
+        self.inference_strategy = inference_strategy
 
     def __getitem__(self, index):
         path, video_index = self.imgs[index]
         img = Image.open(BytesIO(self.img_bytes[index]))
         img = img.convert('RGB')
         normalized = self.rgb_normalize(np.asarray(img))
-        if self.horizontal_flip:
+        if self.inference_strategy == 'hor-flip':
             img = ImageOps.mirror(img)
             normalized_flipped = self.rgb_normalize(np.asarray(img))
             return (normalized, normalized_flipped), self.idx_to_class[video_index]
+        elif self.inference_strategy == 'vert-flip':
+            img = ImageOps.flip(img)
+            normalized_flipped = self.rgb_normalize(np.asarray(img))
+            return (normalized, normalized_flipped), self.idx_to_class[video_index]
+
         return (normalized,), self.idx_to_class[video_index]
 
     def __len__(self):

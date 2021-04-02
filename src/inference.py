@@ -7,6 +7,7 @@ import click
 import numpy as np
 import torch
 import torch.nn.functional as F
+import torch.utils.data
 from loguru import logger
 from tqdm import tqdm
 
@@ -14,7 +15,7 @@ from src.config import Config
 from src.model.predict import predict, prepare_first_frame
 from src.model.vos_net import VOSNet
 from src.utils.datasets import InferenceDataset
-from src.utils.utils import save_prediction, index_to_onehot, load_model
+from src.utils.utils import save_prediction, index_to_onehot, load_model, save_predictions
 
 
 @click.command(name='inference')
@@ -34,12 +35,16 @@ from src.utils.utils import save_prediction, index_to_onehot, load_model
 @click.option('--save', '-s', type=click.Path(file_okay=False, dir_okay=True), required=True,
               help='path to save predictions')
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
-def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device):
-    inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device)
+@click.option('--inference-strategy', type=click.Choice(['single', 'hor-flip', 'vert-flip', '2-scale', '3-scale']),
+              default='single', help='Inference strategy.')
+def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
+                      inference_strategy):
+    inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
+                           inference_strategy)
 
 
 def inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                           disable=False):
+                           inference_strategy, disable=False):
     if Config.DEVICE.type != device:
         Config.DEVICE = torch.device(device)
     model = VOSNet(model=model)
@@ -49,7 +54,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
     model.eval()
 
     data_dir = Path(data) / 'JPEGImages/480p'
-    inference_dataset = InferenceDataset(data_dir, disable=disable, horizontal_flip=True)
+    inference_dataset = InferenceDataset(data_dir, disable=disable, inference_strategy=inference_strategy)
     inference_loader = torch.utils.data.DataLoader(inference_dataset,
                                                    batch_size=1,
                                                    shuffle=False,
@@ -62,19 +67,13 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
     last_video = annotation_list[0]
     frame_idx, video_idx = 0, 0
     with torch.no_grad():
-        for input, curr_video in tqdm(inference_loader, total=len(inference_dataset), disable=disable):
-            curr_video = curr_video[0]
-            if curr_video != last_video:
+        for input, (current_video,) in tqdm(inference_loader, total=len(inference_dataset), disable=disable):
+            if current_video != last_video:
                 # save prediction
                 pred_visualize = pred_visualize.cpu().numpy()
-                for f in range(1, frame_idx):
-                    save_name = str(f).zfill(5)
-                    video_name = last_video
-                    save_prediction(np.asarray(pred_visualize[f - 1], dtype=np.int32), palette, save, save_name,
-                                    video_name)
+                save_predictions(pred_visualize, palette, save, last_video)
 
                 frame_idx = 0
-                # logger.info("End of video %d. Processing a new annotation...\n" % (video_idx + 1))
                 video_idx += 1
             if frame_idx == 0:
                 input_l = input[0].to(Config.DEVICE)
@@ -82,16 +81,16 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
                 with torch.cuda.amp.autocast():
                     feats_history_l = model(input_l)
                     feats_history_r = model(input_r)
-                first_annotation = annotation_dir / curr_video / '00000.png'
+                first_annotation = annotation_dir / current_video / '00000.png'
                 label_history_l, label_history_r, d, palette, weight_dense, weight_sparse = prepare_first_frame(
-                    curr_video,
+                    current_video,
                     save,
                     first_annotation,
                     sigma_1,
                     sigma_2,
                     flipped_labels=True)
                 frame_idx += 1
-                last_video = curr_video
+                last_video = current_video
                 continue
             (batch_size, num_channels, H, W) = input[0].shape
 
@@ -141,7 +140,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
             prediction_r = torch.fliplr(prediction_r).cpu()
             prediction_l = prediction_l.cpu()
 
-            last_video = curr_video
+            last_video = current_video
             frame_idx += 1
 
             # TODO merging predictions
@@ -154,9 +153,5 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
 
     # save last video's prediction
     pred_visualize = pred_visualize.cpu().numpy()
-    for f in range(1, frame_idx):
-        save_name = str(f).zfill(5)
-        video_name = last_video
-        save_prediction(np.asarray(pred_visualize[f - 1], dtype=np.int32),
-                        palette, save, save_name, video_name)
+    save_predictions(pred_visualize, palette, save, last_video)
     logger.info('Inference done.')

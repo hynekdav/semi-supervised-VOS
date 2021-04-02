@@ -8,6 +8,7 @@ from PIL import Image
 
 from src.config import Config
 from loguru import logger
+import numpy as np
 
 
 class AverageMeter(object):
@@ -91,3 +92,9 @@ def load_model(model, checkpoint):
         model = load_model_impl(model, checkpoint)
         model = model.module
     return model
+
+
+def save_predictions(predictions: np.ndarray, palette, save, video_name):
+    for idx, prediction in enumerate(predictions, start=1):
+        save_name = str(idx).zfill(5)
+        save_prediction(prediction.astype(np.int32), palette, save, save_name, video_name)
