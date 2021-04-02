@@ -6,6 +6,7 @@ from __future__ import annotations
 from __future__ import generator_stop
 
 import torch
+import torch.nn.functional as F
 
 from src.config import Config
 from src.model.predict import prepare_first_frame, predict
