@@ -17,15 +17,13 @@ from tqdm import tqdm
 def inference_single(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
                      frame_range, ref_num, temperature, disable):
     global pred_visualize, palette, feats_history, label_history, weight_dense, weight_sparse, d
-    frame_idx, video_idx = 0, 0
+    frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
         if current_video != last_video:
             # save prediction
             pred_visualize = pred_visualize.cpu().numpy()
             save_predictions(pred_visualize, palette, save, last_video)
-
             frame_idx = 0
-            video_idx += 1
         if frame_idx == 0:
             input = input.to(Config.DEVICE)
             with torch.cuda.amp.autocast():
@@ -62,10 +60,8 @@ def inference_single(model, inference_loader, total_len, annotation_dir, last_vi
         label_history = torch.cat((label_history, new_label), 1)
         feats_history = torch.cat((feats_history, features), 0)
 
-        prediction = torch.nn.functional.interpolate(prediction.view(1, d, H_d, W_d),
-                                                     size=(H, W),
-                                                     mode='nearest')
-        prediction = torch.argmax(prediction, 1).squeeze().cpu()  # (1, H, W)
+        prediction = torch.nn.functional.interpolate(prediction.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
+        prediction = torch.argmax(prediction, 1).cpu()  # (1, H, W)
 
         last_video = current_video
         frame_idx += 1
@@ -83,15 +79,13 @@ def inference_single(model, inference_loader, total_len, annotation_dir, last_vi
 def inference_hor_flip(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
                        frame_range, ref_num, temperature, disable):
     global pred_visualize, palette, feats_history_l, label_history_l, weight_dense, weight_sparse, feats_history_r, label_history_r, d
-    frame_idx, video_idx = 0, 0
+    frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
         if current_video != last_video:
             # save prediction
             pred_visualize = pred_visualize.cpu().numpy()
             save_predictions(pred_visualize, palette, save, last_video)
-
             frame_idx = 0
-            video_idx += 1
         if frame_idx == 0:
             input_l = input[0].to(Config.DEVICE)
             input_r = input[1].to(Config.DEVICE)
@@ -175,15 +169,13 @@ def inference_hor_flip(model, inference_loader, total_len, annotation_dir, last_
 def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
                        frame_range, ref_num, temperature, disable):
     global pred_visualize, palette, feats_history_l, label_history_l, weight_dense, weight_sparse, feats_history_r, label_history_r, d
-    frame_idx, video_idx = 0, 0
+    frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
         if current_video != last_video:
             # save prediction
             pred_visualize = pred_visualize.cpu().numpy()
             save_predictions(pred_visualize, palette, save, last_video)
-
             frame_idx = 0
-            video_idx += 1
         if frame_idx == 0:
             input_l = input[0].to(Config.DEVICE)
             input_r = input[1].to(Config.DEVICE)
