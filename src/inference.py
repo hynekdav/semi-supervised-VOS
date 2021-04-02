@@ -14,7 +14,8 @@ from src.config import Config
 from src.model.predict import predict, prepare_first_frame
 from src.model.vos_net import VOSNet
 from src.utils.datasets import InferenceDataset
-from src.utils.inference_utils import inference_hor_flip, inference_ver_flip, inference_single
+from src.utils.inference_utils import inference_hor_flip, inference_ver_flip, inference_single, inference_2_scale, \
+    inference_3_scale
 from src.utils.utils import index_to_onehot, load_model, save_predictions
 
 
@@ -76,8 +77,10 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
             inference_ver_flip(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
                                sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
         elif inference_strategy == '2-scale':
-            pass
+            inference_2_scale(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
+                               sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
         elif inference_strategy == '3-scale':
-            pass
+            inference_3_scale(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
+                               sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
 
     logger.info('Inference done.')

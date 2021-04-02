@@ -258,7 +258,91 @@ def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_
 
 def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
                       frame_range, ref_num, temperature, disable):
-    pass
+    frame_idx = 0
+    for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
+        if current_video != last_video:
+            # save prediction
+            pred_visualize = pred_visualize.cpu().numpy()
+            save_predictions(pred_visualize, palette, save, last_video)
+            frame_idx = 0
+        if frame_idx == 0:
+            input_o = input[0].to(Config.DEVICE)
+            input_u = input[1].to(Config.DEVICE)
+            with torch.cuda.amp.autocast():
+                feats_history_o = model(input_o)
+                feats_history_u = model(input_u)
+            first_annotation = annotation_dir / current_video / '00000.png'
+            label_history, d, palette, weight_dense, weight_sparse = prepare_first_frame(
+                current_video,
+                save,
+                first_annotation,
+                sigma_1,
+                sigma_2,
+                inference_strategy='2-scale')
+            frame_idx += 1
+            last_video = current_video
+            label_history_o, label_history_u = label_history
+            weight_dense_o, weight_dense_u = weight_dense
+            weight_sparse_o, weight_sparse_u = weight_sparse
+            continue
+        (_, _, H, W) = input[0].shape
+
+        input_o = input[0].to(Config.DEVICE)
+        input_u = input[1].to(Config.DEVICE)
+        with torch.cuda.amp.autocast():
+            features_o = model(input_o)
+            features_u = model(input_u)
+
+        (_, feature_dim, H_d, W_d) = features_o.shape
+        prediction_o = predict(feats_history_o,
+                             features_o[0],
+                             label_history_o,
+                             weight_dense_o,
+                             weight_sparse_o,
+                             frame_idx,
+                             frame_range,
+                             ref_num,
+                             temperature)
+        # Store all frames' features
+        new_label_o = index_to_onehot(torch.argmax(prediction_o, 0), d).unsqueeze(1)
+        label_history_o = torch.cat((label_history_o, new_label_o), 1)
+        feats_history_o = torch.cat((feats_history_o, features_o), 0)
+
+        prediction_o = torch.nn.functional.interpolate(prediction_o.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
+        prediction_o = torch.argmax(prediction_o, 1).cpu()  # (1, H, W)
+
+
+        (_, feature_dim, H_d, W_d) = features_u.shape
+        prediction_u = predict(feats_history_u,
+                             features_u[0],
+                             label_history_u,
+                             weight_dense_u,
+                             weight_sparse_u,
+                             frame_idx,
+                             frame_range,
+                             ref_num,
+                             temperature)
+        # Store all frames' features
+        new_label_u = index_to_onehot(torch.argmax(prediction_u, 0), d).unsqueeze(1)
+        label_history_u = torch.cat((label_history_u, new_label_u), 1)
+        feats_history_u = torch.cat((feats_history_u, features_u), 0)
+
+        prediction_u = torch.nn.functional.interpolate(prediction_u.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
+        prediction_u = torch.argmax(prediction_u, 1).cpu()  # (1, H, W)
+
+        prediction = torch.maximum(prediction_o, prediction_u).cpu().half()
+
+        last_video = current_video
+        frame_idx += 1
+
+        if frame_idx == 2:
+            pred_visualize = prediction
+        else:
+            pred_visualize = torch.cat((pred_visualize, prediction), 0)
+
+    # save last video's prediction
+    pred_visualize = pred_visualize.cpu().numpy()
+    save_predictions(pred_visualize, palette, save, last_video)
 
 
 def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,

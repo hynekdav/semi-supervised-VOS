@@ -14,6 +14,7 @@ from torchvision.transforms import transforms
 from tqdm import tqdm
 
 from .transforms import get_crop_params, crop, FixedColorJitter
+from ..config import Config
 
 
 class TrainDataset(datasets.ImageFolder):
@@ -149,6 +150,11 @@ class InferenceDataset(datasets.ImageFolder):
             img = ImageOps.flip(img)
             normalized_flipped = self.rgb_normalize(np.asarray(img))
             return (normalized, normalized_flipped), self.idx_to_class[video_index]
+        elif self.inference_strategy == '2-scale':
+            img_2_size = np.ceil(np.array(img.size) * 2).astype(np.int)
+            img_2 = img.resize(img_2_size, Image.ANTIALIAS)
+            normalized_2 = self.rgb_normalize(np.asarray(img_2))
+            return (normalized, normalized_2), self.idx_to_class[video_index]
 
         return normalized, self.idx_to_class[video_index]
 
