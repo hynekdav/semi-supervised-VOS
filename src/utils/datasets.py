@@ -150,7 +150,7 @@ class InferenceDataset(datasets.ImageFolder):
             normalized_flipped = self.rgb_normalize(np.asarray(img))
             return (normalized, normalized_flipped), self.idx_to_class[video_index]
 
-        return (normalized,), self.idx_to_class[video_index]
+        return normalized, self.idx_to_class[video_index]
 
     def __len__(self):
         return len(self.imgs)
