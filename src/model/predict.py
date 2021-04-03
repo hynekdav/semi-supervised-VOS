@@ -113,8 +113,8 @@ def prepare_first_frame(curr_video,
     label = torch.Tensor(label).long().to(Config.DEVICE)  # (1, H, W)
     label_1hot = get_labels(label, d, H, W, H_d, W_d)
 
-    weight_dense = get_spatial_weight((H_d, W_d), sigma1)
-    weight_sparse = get_spatial_weight((H_d, W_d), sigma2)
+    weight_dense = get_spatial_weight((H_d, W_d), sigma1).type(torch.float16)
+    weight_sparse = get_spatial_weight((H_d, W_d), sigma2).type(torch.float16)
 
     if save_prediction is not None:
         if not os.path.exists(save_prediction):
@@ -154,19 +154,15 @@ def get_spatial_weight(shape, sigma, t_loc: Optional[float] = None):
     """
     (H, W) = shape
 
-    index_matrix = torch.arange(H * W, dtype=torch.int32, device='cpu').reshape(H * W, 1)
+    index_matrix = torch.arange(H * W, dtype=torch.long).reshape(H * W, 1).to(Config.DEVICE)
     index_matrix = torch.cat((index_matrix.div(float(W)), index_matrix % W), -1)  # (H*W, 2)
     d = index_matrix - index_matrix.unsqueeze(1)  # (H*W, H*W, 2)
     if t_loc is not None:
         d[d < t_loc] = 0.0
-    d = d.float().cpu().numpy()
-    # d = d.float().pow(2).sum(-1)  # (H*W, H*W)
-    # w = (- d / sigma ** 2).exp()
+    d = d.half().pow(2).sum(-1)  # (H*W, H*W)
+    w = (- d / sigma ** 2).exp()
 
-    d = np.power(d, 2).sum(-1)
-    w = np.exp(-d / sigma ** 2)
-
-    return torch.from_numpy(w).half().to(Config.DEVICE)
+    return w
 
 
 def get_descriptor_weight(array: np.array, p: float = 0.5):
@@ -182,16 +178,3 @@ def get_temporal_weight(frame_1: np.array, frame_2: np.array, sigma, t_temp: Opt
     w = np.exp(-d / sigma ** 2)
 
     return w
-
-
-def to_sparse(x):
-    """ converts dense tensor x to sparse format """
-    x_typename = torch.typename(x).split('.')[-1]
-    sparse_tensortype = getattr(torch.sparse, x_typename)
-
-    indices = torch.nonzero(x)
-    if len(indices.shape) == 0:  # if all elements are zeros
-        return sparse_tensortype(*x.shape)
-    indices = indices.t()
-    values = x[tuple(indices[i] for i in range(indices.shape[0]))]
-    return sparse_tensortype(indices, values, x.size())
