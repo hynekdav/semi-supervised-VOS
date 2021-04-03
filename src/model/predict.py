@@ -51,10 +51,7 @@ def predict(ref,
     global_similarity *= temperature
 
     # softmax
-    global_similarity = global_similarity.type(torch.float16)
-    torch.exp(global_similarity, out=global_similarity)
-    summed = torch.sum(global_similarity, dim=0, keepdim=True)
-    global_similarity /= summed
+    global_similarity = global_similarity.softmax(dim=0)
 
     # spatial weight and motion model
     global_similarity = global_similarity.contiguous().view(num_ref, H * W, H * W)
@@ -64,7 +61,7 @@ def predict(ref,
         # continuous frames
         global_similarity[-Config.CONTINUOUS_FRAME:] *= weight_dense
     else:
-        global_similarity *= weight_dense  # global_similarity.mul(weight_dense)
+        global_similarity = global_similarity.mul(weight_dense)
     global_similarity = global_similarity.view(-1, H * W)
 
     # get prediction
@@ -113,8 +110,8 @@ def prepare_first_frame(curr_video,
     label = torch.Tensor(label).long().to(Config.DEVICE)  # (1, H, W)
     label_1hot = get_labels(label, d, H, W, H_d, W_d)
 
-    weight_dense = get_spatial_weight((H_d, W_d), sigma1).type(torch.float16)
-    weight_sparse = get_spatial_weight((H_d, W_d), sigma2).type(torch.float16)
+    weight_dense = get_spatial_weight((H_d, W_d), sigma1)
+    weight_sparse = get_spatial_weight((H_d, W_d), sigma2)
 
     if save_prediction is not None:
         if not os.path.exists(save_prediction):
