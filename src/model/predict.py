@@ -110,8 +110,8 @@ def prepare_first_frame(curr_video,
     label = torch.Tensor(label).long().to(Config.DEVICE)  # (1, H, W)
     label_1hot = get_labels(label, d, H, W, H_d, W_d)
 
-    weight_dense = get_spatial_weight((H_d, W_d), sigma1).type(torch.float16)
-    weight_sparse = get_spatial_weight((H_d, W_d), sigma2).type(torch.float16)
+    weight_dense = get_spatial_weight((H_d, W_d), sigma1)
+    weight_sparse = get_spatial_weight((H_d, W_d), sigma2)
 
     if save_prediction is not None:
         if not os.path.exists(save_prediction):
@@ -132,8 +132,8 @@ def prepare_first_frame(curr_video,
     elif inference_strategy == '2-scale':
         H_d_2 = int(np.ceil(H * Config.SCALE * 2))
         W_d_2 = int(np.ceil(W * Config.SCALE * 2))
-        weight_dense_2 = get_spatial_weight((H_d_2, W_d_2), sigma1).type(torch.float16)
-        weight_sparse_2 = get_spatial_weight((H_d_2, W_d_2), sigma2).type(torch.float16)
+        weight_dense_2 = get_spatial_weight((H_d_2, W_d_2), sigma1)
+        weight_sparse_2 = get_spatial_weight((H_d_2, W_d_2), sigma2)
         label_1hot_2 = get_labels(label, d, H, W, H_d_2, W_d_2)
         return (label_1hot, label_1hot_2), d, palette, (weight_dense, weight_dense_2), (weight_sparse, weight_sparse_2)
     elif inference_strategy == '3-scale':
@@ -163,7 +163,7 @@ def get_spatial_weight(shape, sigma, t_loc: Optional[float] = None):
     d = np.power(d, 2).sum(-1)
     w = np.exp(-d / sigma ** 2)
 
-    return to_sparse(torch.from_numpy(w).half().to(Config.DEVICE))
+    return torch.from_numpy(w).half().to(Config.DEVICE)
 
 
 def get_descriptor_weight(array: np.array, p: float = 0.5):
