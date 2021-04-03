@@ -64,7 +64,7 @@ def predict(ref,
         # continuous frames
         global_similarity[-Config.CONTINUOUS_FRAME:] *= weight_dense
     else:
-        global_similarity = global_similarity.mul(weight_dense)
+        global_similarity *= weight_dense  # global_similarity.mul(weight_dense)
     global_similarity = global_similarity.view(-1, H * W)
 
     # get prediction
