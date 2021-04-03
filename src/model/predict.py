@@ -163,7 +163,7 @@ def get_spatial_weight(shape, sigma, t_loc: Optional[float] = None):
     d = np.power(d, 2).sum(-1)
     w = np.exp(-d / sigma ** 2)
 
-    return to_sparse(torch.from_numpy(w).to(Config.DEVICE))
+    return to_sparse(torch.from_numpy(w).half().to(Config.DEVICE))
 
 
 def get_descriptor_weight(array: np.array, p: float = 0.5):
