@@ -51,7 +51,10 @@ def predict(ref,
     global_similarity *= temperature
 
     # softmax
-    global_similarity = global_similarity.softmax(dim=0)
+    global_similarity = global_similarity.type(torch.float16)
+    torch.exp(global_similarity, out=global_similarity)
+    summed = torch.sum(global_similarity, dim=0, keepdim=True)
+    global_similarity /= summed
 
     # spatial weight and motion model
     global_similarity = global_similarity.contiguous().view(num_ref, H * W, H * W)
