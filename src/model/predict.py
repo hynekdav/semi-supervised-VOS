@@ -156,14 +156,14 @@ def get_spatial_weight(shape, sigma, t_loc: Optional[float] = None):
     d = index_matrix - index_matrix.unsqueeze(1)  # (H*W, H*W, 2)
     if t_loc is not None:
         d[d < t_loc] = 0.0
-    d = d.half().cpu().numpy()
+    d = d.float().cpu().numpy()
     # d = d.float().pow(2).sum(-1)  # (H*W, H*W)
     # w = (- d / sigma ** 2).exp()
 
     d = np.power(d, 2).sum(-1)
-    w = np.exp(-d / sigma **2)
+    w = np.exp(-d / sigma ** 2)
 
-    return torch.from_numpy(w).to(Config.DEVICE)
+    return to_sparse(torch.from_numpy(w).to(Config.DEVICE))
 
 
 def get_descriptor_weight(array: np.array, p: float = 0.5):
@@ -179,3 +179,16 @@ def get_temporal_weight(frame_1: np.array, frame_2: np.array, sigma, t_temp: Opt
     w = np.exp(-d / sigma ** 2)
 
     return w
+
+
+def to_sparse(x):
+    """ converts dense tensor x to sparse format """
+    x_typename = torch.typename(x).split('.')[-1]
+    sparse_tensortype = getattr(torch.sparse, x_typename)
+
+    indices = torch.nonzero(x)
+    if len(indices.shape) == 0:  # if all elements are zeros
+        return sparse_tensortype(*x.shape)
+    indices = indices.t()
+    values = x[tuple(indices[i] for i in range(indices.shape[0]))]
+    return sparse_tensortype(indices, values, x.size())
