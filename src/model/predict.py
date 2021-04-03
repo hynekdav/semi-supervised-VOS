@@ -65,7 +65,7 @@ def predict(ref,
     global_similarity = global_similarity.view(-1, H * W)
 
     # get prediction
-    prediction = ref_label_selected.type(torch.float16).mm(global_similarity)
+    prediction = ref_label_selected.float().mm(global_similarity)
     return prediction
 
 
