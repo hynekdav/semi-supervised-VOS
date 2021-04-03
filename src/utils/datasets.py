@@ -141,6 +141,8 @@ class InferenceDataset(datasets.ImageFolder):
         path, video_index = self.imgs[index]
         img = Image.open(BytesIO(self.img_bytes[index]))
         img = img.convert('RGB')
+        img_size = np.ceil(np.array(img.size) * 1.6).astype(np.int)
+        img = img.resize(img_size, Image.ANTIALIAS)
         normalized = self.rgb_normalize(np.asarray(img))
         if self.inference_strategy == 'hor-flip':
             img = ImageOps.mirror(img)
