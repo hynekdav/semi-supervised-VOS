@@ -151,15 +151,19 @@ def get_spatial_weight(shape, sigma, t_loc: Optional[float] = None):
     """
     (H, W) = shape
 
-    index_matrix = torch.arange(H * W, dtype=torch.long).reshape(H * W, 1).to(Config.DEVICE)
+    index_matrix = torch.arange(H * W, dtype=torch.int32, device='cpu').reshape(H * W, 1)
     index_matrix = torch.cat((index_matrix.div(float(W)), index_matrix % W), -1)  # (H*W, 2)
     d = index_matrix - index_matrix.unsqueeze(1)  # (H*W, H*W, 2)
     if t_loc is not None:
         d[d < t_loc] = 0.0
-    d = d.half().pow(2).sum(-1)  # (H*W, H*W)
-    w = (- d / sigma ** 2).exp()
+    d = d.half().cpu().numpy()
+    # d = d.float().pow(2).sum(-1)  # (H*W, H*W)
+    # w = (- d / sigma ** 2).exp()
 
-    return w
+    d = np.power(d, 2).sum(-1)
+    w = np.exp(-d / sigma **2)
+
+    return torch.from_numpy(w).to(Config.DEVICE)
 
 
 def get_descriptor_weight(array: np.array, p: float = 0.5):
