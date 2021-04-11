@@ -141,7 +141,7 @@ class InferenceDataset(datasets.ImageFolder):
         path, video_index = self.imgs[index]
         img = Image.open(BytesIO(self.img_bytes[index]))
         img = img.convert('RGB')
-        img_size = np.ceil(np.array(img.size) * 1.6).astype(np.int)
+        img_size = np.ceil(np.array(img.size)).astype(np.int)
         img = img.resize(img_size, Image.ANTIALIAS)
         normalized = self.rgb_normalize(np.asarray(img))
         if self.inference_strategy == 'hor-flip':
@@ -153,7 +153,7 @@ class InferenceDataset(datasets.ImageFolder):
             normalized_flipped = self.rgb_normalize(np.asarray(img))
             return (normalized, normalized_flipped), self.idx_to_class[video_index]
         elif self.inference_strategy == '2-scale':
-            img_2_size = np.ceil(np.array(img.size) / 2).astype(np.int)
+            img_2_size = np.ceil(np.array(img.size) * 1.25).astype(np.int)
             img_2 = img.resize(img_2_size, Image.ANTIALIAS)
             normalized_2 = self.rgb_normalize(np.asarray(img_2))
             return (normalized, normalized_2), self.idx_to_class[video_index]

@@ -258,6 +258,7 @@ def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_
 
 def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
                       frame_range, ref_num, temperature, disable):
+    global pred_visualize, palette, feats_history_o, label_history_o, weight_dense_o, weight_sparse_o, feats_history_u, label_history_u, weight_dense_u, weight_sparse_u
     frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
         if current_video != last_video:
@@ -295,14 +296,14 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
 
         (_, feature_dim, H_d, W_d) = features_o.shape
         prediction_o = predict(feats_history_o,
-                             features_o[0],
-                             label_history_o,
-                             weight_dense_o,
-                             weight_sparse_o,
-                             frame_idx,
-                             frame_range,
-                             ref_num,
-                             temperature)
+                               features_o[0],
+                               label_history_o,
+                               weight_dense_o,
+                               weight_sparse_o,
+                               frame_idx,
+                               frame_range,
+                               ref_num,
+                               temperature)
         # Store all frames' features
         new_label_o = index_to_onehot(torch.argmax(prediction_o, 0), d).unsqueeze(1)
         label_history_o = torch.cat((label_history_o, new_label_o), 1)
@@ -311,17 +312,16 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
         prediction_o = torch.nn.functional.interpolate(prediction_o.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
         prediction_o = torch.argmax(prediction_o, 1).cpu()  # (1, H, W)
 
-
         (_, feature_dim, H_d, W_d) = features_u.shape
         prediction_u = predict(feats_history_u,
-                             features_u[0],
-                             label_history_u,
-                             weight_dense_u,
-                             weight_sparse_u,
-                             frame_idx,
-                             frame_range,
-                             ref_num,
-                             temperature)
+                               features_u[0],
+                               label_history_u,
+                               weight_dense_u,
+                               weight_sparse_u,
+                               frame_idx,
+                               frame_range,
+                               ref_num,
+                               temperature)
         # Store all frames' features
         new_label_u = index_to_onehot(torch.argmax(prediction_u, 0), d).unsqueeze(1)
         label_history_u = torch.cat((label_history_u, new_label_u), 1)
