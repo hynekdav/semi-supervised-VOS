@@ -130,8 +130,8 @@ def prepare_first_frame(curr_video,
         label_1hot_flipped = get_labels(torch.flipud(label), d, H, W, H_d, W_d)
         return label_1hot, label_1hot_flipped, d, palette, weight_dense, weight_sparse
     elif inference_strategy == '2-scale':
-        H_d_2 = int(np.ceil(H * Config.SCALE * 1.16))
-        W_d_2 = int(np.ceil(W * Config.SCALE * 1.16))
+        H_d_2 = int(np.ceil(H * Config.SCALE * 1.15))
+        W_d_2 = int(np.ceil(W * Config.SCALE * 1.15))
         weight_dense_2 = get_spatial_weight((H_d_2, W_d_2), sigma1)
         weight_sparse_2 = get_spatial_weight((H_d_2, W_d_2), sigma2)
         label_1hot_2 = get_labels(label, d, H, W, H_d_2, W_d_2)
