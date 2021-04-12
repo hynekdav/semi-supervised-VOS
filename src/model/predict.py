@@ -40,7 +40,7 @@ def predict(ref,
     sample_idx = sample_frames(frame_idx, range, ref_num)
     ref_selected = ref.index_select(0, sample_idx)
     ref_label_selected = ref_label.index_select(1, sample_idx).view(d, -1)
-    # TODO predelat na sparse matrices
+
     # get similarity matrix
     (num_ref, feature_dim, H, W) = ref_selected.shape
     ref_selected = ref_selected.permute(0, 2, 3, 1).reshape(-1, feature_dim)
@@ -151,14 +151,13 @@ def get_spatial_weight(shape, sigma, t_loc: Optional[float] = None):
     """
     (H, W) = shape
 
-    index_matrix = torch.arange(H * W, dtype=torch.int).reshape(H * W, 1).to(Config.DEVICE)
+    index_matrix = torch.arange(H * W, dtype=torch.long).reshape(H * W, 1).to(Config.DEVICE)
     index_matrix = torch.cat((index_matrix.div(float(W)), index_matrix % W), -1)  # (H*W, 2)
     d = index_matrix - index_matrix.unsqueeze(1)  # (H*W, H*W, 2)
     if t_loc is not None:
         d[d < t_loc] = 0.0
     d = d.float().pow(2).sum(-1)  # (H*W, H*W)
     w = (- d / sigma ** 2).exp()
-    # w = to_sparse(w)
 
     return w
 
@@ -176,16 +175,3 @@ def get_temporal_weight(frame_1: np.array, frame_2: np.array, sigma, t_temp: Opt
     w = np.exp(-d / sigma ** 2)
 
     return w
-
-
-def to_sparse(x):
-    """ converts dense tensor x to sparse format """
-    x_typename = torch.typename(x).split('.')[-1]
-    sparse_tensortype = getattr(torch.sparse, x_typename)
-
-    indices = torch.nonzero(x)
-    if len(indices.shape) == 0:  # if all elements are zeros
-        return sparse_tensortype(*x.shape)
-    indices = indices.t()
-    values = x[tuple(indices[i] for i in range(indices.shape[0]))]
-    return sparse_tensortype(indices, values, x.size())

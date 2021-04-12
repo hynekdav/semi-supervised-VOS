@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 
 from src.config import Config
-from src.model.predict import prepare_first_frame, predict, to_sparse
+from src.model.predict import prepare_first_frame, predict
 from src.utils.utils import save_predictions, index_to_onehot
 from tqdm import tqdm
 
@@ -38,7 +38,6 @@ def inference_single(model, inference_loader, total_len, annotation_dir, last_vi
                 inference_strategy='single')
             frame_idx += 1
             last_video = current_video
-            label_history = to_sparse(label_history)
             continue
         (batch_size, num_channels, H, W) = input.shape
 
@@ -57,7 +56,7 @@ def inference_single(model, inference_loader, total_len, annotation_dir, last_vi
                              ref_num,
                              temperature)
         # Store all frames' features
-        new_label = to_sparse(index_to_onehot(torch.argmax(prediction, 0), d).unsqueeze(1))
+        new_label = index_to_onehot(torch.argmax(prediction, 0), d).unsqueeze(1)
         label_history = torch.cat((label_history, new_label), 1)
         feats_history = torch.cat((feats_history, features), 0)
 
