@@ -37,14 +37,16 @@ from src.utils.utils import load_model
               default='single', help='Inference strategy.')
 @click.option('--additional-model', type=click.Path(file_okay=True, dir_okay=False), required=False,
               help='path to the additional checkpoint')
+@click.option('--additional-model-type', type=click.STRING, required=False, default='resnet50',
+              help='path of the additional model')
 def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                      inference_strategy, additional_model):
+                      inference_strategy, additional_model, additional_model_type):
     inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                           inference_strategy, additional_model)
+                           inference_strategy, additional_model, additional_model_type)
 
 
 def inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                           inference_strategy, additional_resume, disable=False):
+                           inference_strategy, additional_resume, additional_model_type, disable=False):
     if Config.DEVICE.type != device:
         Config.DEVICE = torch.device(device)
     model = VOSNet(model=model)
@@ -55,7 +57,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
 
     additional_model = None
     if inference_strategy == 'multimodel':
-        additional_model = VOSNet(model='facebook')
+        additional_model = VOSNet(model=additional_model_type)
         additional_model = load_model(additional_model, additional_resume)
 
         additional_model = additional_model.to(Config.DEVICE)
