@@ -1,22 +1,18 @@
 # -*- encoding: utf-8 -*-
 # ! python3
-import os
 from pathlib import Path
 
 import click
 import torch
-import torch.nn.functional as F
 import torch.utils.data
 from loguru import logger
-from tqdm import tqdm
 
 from src.config import Config
-from src.model.predict import predict, prepare_first_frame
 from src.model.vos_net import VOSNet
 from src.utils.datasets import InferenceDataset
 from src.utils.inference_utils import inference_hor_flip, inference_ver_flip, inference_single, inference_2_scale, \
-    inference_3_scale
-from src.utils.utils import index_to_onehot, load_model, save_predictions
+    inference_3_scale, inference_multimodel
+from src.utils.utils import load_model
 
 
 @click.command(name='inference')
@@ -36,16 +32,19 @@ from src.utils.utils import index_to_onehot, load_model, save_predictions
 @click.option('--save', '-s', type=click.Path(file_okay=False, dir_okay=True), required=True,
               help='path to save predictions')
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
-@click.option('--inference-strategy', type=click.Choice(['single', 'hor-flip', 'vert-flip', '2-scale', '3-scale']),
+@click.option('--inference-strategy',
+              type=click.Choice(['single', 'hor-flip', 'vert-flip', '2-scale', '3-scale', 'multimodel']),
               default='single', help='Inference strategy.')
+@click.option('--additional-model', type=click.Path(file_okay=True, dir_okay=False), required=False,
+              help='path to the additional checkpoint')
 def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                      inference_strategy):
+                      inference_strategy, additional_model):
     inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                           inference_strategy)
+                           inference_strategy, additional_model)
 
 
 def inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                           inference_strategy, disable=False):
+                           inference_strategy, additional_resume, disable=False):
     if Config.DEVICE.type != device:
         Config.DEVICE = torch.device(device)
     model = VOSNet(model=model)
@@ -53,6 +52,14 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
 
     model = model.to(Config.DEVICE)
     model.eval()
+
+    additional_model = None
+    if inference_strategy == 'multimodel':
+        additional_model = VOSNet(model='facebook')
+        additional_model = load_model(additional_model, additional_resume)
+
+        additional_model = additional_model.to(Config.DEVICE)
+        additional_model.eval()
 
     data_dir = Path(data) / 'JPEGImages/480p'
     inference_dataset = InferenceDataset(data_dir, disable=disable, inference_strategy=inference_strategy)
@@ -78,9 +85,12 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
                                sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
         elif inference_strategy == '2-scale':
             inference_2_scale(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
-                               sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
+                              sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
         elif inference_strategy == '3-scale':
             inference_3_scale(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
-                               sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
+                              sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
+        elif inference_strategy == 'multimodel':
+            inference_multimodel(model, additional_model, inference_loader, len(inference_dataset), annotation_dir,
+                                 last_video, save, sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
 
     logger.info('Inference done.')

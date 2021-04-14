@@ -348,3 +348,89 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
 def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
                       frame_range, ref_num, temperature, disable):
     pass
+
+
+def inference_multimodel(model, additional_model, inference_loader, total_len, annotation_dir, last_video, save,
+                         sigma_1, sigma_2, frame_range, ref_num, temperature, disable):
+    global pred_visualize, label_history_a, feats_history_a, weight_sparse, weight_dense, label_history_o, feats_history_o, d, palette
+    frame_idx = 0
+    for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
+        if current_video != last_video:
+            # save prediction
+            pred_visualize = pred_visualize.cpu().numpy()
+            save_predictions(pred_visualize, palette, save, last_video)
+            frame_idx = 0
+        if frame_idx == 0:
+            input = input.to(Config.DEVICE)
+            with torch.cuda.amp.autocast():
+                feats_history_o = model(input)
+                feats_history_a = additional_model(input)
+            first_annotation = annotation_dir / current_video / '00000.png'
+            label_history, d, palette, weight_dense, weight_sparse = prepare_first_frame(
+                current_video,
+                save,
+                first_annotation,
+                sigma_1,
+                sigma_2,
+                inference_strategy='multimodel')
+            frame_idx += 1
+            last_video = current_video
+            label_history_o = label_history
+            label_history_a = label_history
+            continue
+        (_, _, H, W) = input.shape
+
+        input = input.to(Config.DEVICE)
+        with torch.cuda.amp.autocast():
+            features_o = model(input)
+            features_a = additional_model(input)
+
+        (_, feature_dim, H_d, W_d) = features_o.shape
+        prediction_o = predict(feats_history_o,
+                               features_o[0],
+                               label_history_o,
+                               weight_dense,
+                               weight_sparse,
+                               frame_idx,
+                               frame_range,
+                               ref_num,
+                               temperature)
+        # Store all frames' features
+        new_label_o = index_to_onehot(torch.argmax(prediction_o, 0), d).unsqueeze(1)
+        label_history_o = torch.cat((label_history_o, new_label_o), 1)
+        feats_history_o = torch.cat((feats_history_o, features_o), 0)
+
+        prediction_o = torch.nn.functional.interpolate(prediction_o.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
+        prediction_o = torch.argmax(prediction_o, 1).cpu()  # (1, H, W)
+
+        (_, feature_dim, H_d, W_d) = features_a.shape
+        prediction_a = predict(feats_history_a,
+                               features_a[0],
+                               label_history_a,
+                               weight_dense,
+                               weight_sparse,
+                               frame_idx,
+                               frame_range,
+                               ref_num,
+                               temperature)
+        # Store all frames' features
+        new_label_a = index_to_onehot(torch.argmax(prediction_a, 0), d).unsqueeze(1)
+        label_history_a = torch.cat((label_history_a, new_label_a), 1)
+        feats_history_a = torch.cat((feats_history_a, features_a), 0)
+
+        prediction_a = torch.nn.functional.interpolate(prediction_a.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
+        prediction_a = torch.argmax(prediction_a, 1).cpu()  # (1, H, W)
+
+        prediction = torch.maximum(prediction_o, prediction_a).cpu().half()
+
+        last_video = current_video
+        frame_idx += 1
+
+        if frame_idx == 2:
+            pred_visualize = prediction
+        else:
+            pred_visualize = torch.cat((pred_visualize, prediction), 0)
+
+    # save last video's prediction
+    pred_visualize = pred_visualize.cpu().numpy()
+    save_predictions(pred_visualize, palette, save, last_video)

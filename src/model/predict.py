@@ -138,6 +138,9 @@ def prepare_first_frame(curr_video,
         return (label_1hot, label_1hot_2), d, palette, (weight_dense, weight_dense_2), (weight_sparse, weight_sparse_2)
     elif inference_strategy == '3-scale':
         pass
+    elif inference_strategy == 'multimodel':
+        # that's right, do nothing
+        pass
 
     return label_1hot, d, palette, weight_dense, weight_sparse
 
