@@ -56,7 +56,7 @@ def inference_single(model, inference_loader, total_len, annotation_dir, last_vi
                              ref_num,
                              temperature)
         # Store all frames' features
-        new_label = index_to_onehot(torch.argmax(prediction, 0), d).unsqueeze(1)
+        new_label = prediction.unsqueeze(1) # index_to_onehot(torch.argmax(prediction, 0), d).unsqueeze(1)
         label_history = torch.cat((label_history, new_label), 1)
         feats_history = torch.cat((feats_history, features), 0)
 
@@ -305,7 +305,7 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
                                ref_num,
                                temperature)
         # Store all frames' features
-        new_label_o = prediction_o.unsqueeze(1) # index_to_onehot(torch.argmax(prediction_o, 0), d).unsqueeze(1)
+        new_label_o = index_to_onehot(torch.argmax(prediction_o, 0), d).unsqueeze(1)
         label_history_o = torch.cat((label_history_o, new_label_o), 1)
         feats_history_o = torch.cat((feats_history_o, features_o), 0)
 
@@ -323,7 +323,7 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
                                ref_num,
                                temperature)
         # Store all frames' features
-        new_label_u = prediction_u.unsqueeze(1) # index_to_onehot(torch.argmax(prediction_u, 0), d).unsqueeze(1)
+        new_label_u = index_to_onehot(torch.argmax(prediction_u, 0), d).unsqueeze(1)
         label_history_u = torch.cat((label_history_u, new_label_u), 1)
         feats_history_u = torch.cat((feats_history_u, features_u), 0)
 
