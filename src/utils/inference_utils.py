@@ -310,7 +310,7 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
         feats_history_o = torch.cat((feats_history_o, features_o), 0)
 
         prediction_o = torch.nn.functional.interpolate(prediction_o.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
-        prediction_o = torch.argmax(prediction_o, 1).cpu()  # (1, H, W)
+        # prediction_o = torch.argmax(prediction_o, 1).cpu()  # (1, H, W)
 
         (_, feature_dim, H_d, W_d) = features_u.shape
         prediction_u = predict(feats_history_u,
@@ -328,9 +328,10 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
         feats_history_u = torch.cat((feats_history_u, features_u), 0)
 
         prediction_u = torch.nn.functional.interpolate(prediction_u.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
-        prediction_u = torch.argmax(prediction_u, 1).cpu()  # (1, H, W)
+        # prediction_u = torch.argmax(prediction_u, 1).cpu()  # (1, H, W)
 
-        prediction = torch.maximum(prediction_o, prediction_u).cpu().half()
+        prediction = (prediction_o + prediction_u).cpu().half() # torch.maximum(prediction_o, prediction_u).cpu().half()
+        prediction = torch.argmax(prediction, 1).cpu()
 
         last_video = current_video
         frame_idx += 1
@@ -343,11 +344,6 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
     # save last video's prediction
     pred_visualize = pred_visualize.cpu().numpy()
     save_predictions(pred_visualize, palette, save, last_video)
-
-
-def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
-                      frame_range, ref_num, temperature, disable):
-    pass
 
 
 def inference_multimodel(model, additional_model, inference_loader, total_len, annotation_dir, last_video, save,

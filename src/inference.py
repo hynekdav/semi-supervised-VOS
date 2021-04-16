@@ -11,7 +11,7 @@ from src.config import Config
 from src.model.vos_net import VOSNet
 from src.utils.datasets import InferenceDataset
 from src.utils.inference_utils import inference_hor_flip, inference_ver_flip, inference_single, inference_2_scale, \
-    inference_3_scale, inference_multimodel
+    inference_multimodel
 from src.utils.utils import load_model
 
 
@@ -33,7 +33,7 @@ from src.utils.utils import load_model
               help='path to save predictions')
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
 @click.option('--inference-strategy',
-              type=click.Choice(['single', 'hor-flip', 'vert-flip', '2-scale', '3-scale', 'multimodel']),
+              type=click.Choice(['single', 'hor-flip', 'vert-flip', '2-scale', 'multimodel']),
               default='single', help='Inference strategy.')
 @click.option('--additional-model', type=click.Path(file_okay=True, dir_okay=False), required=False,
               help='path to the additional checkpoint')
@@ -87,9 +87,6 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
                                sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
         elif inference_strategy == '2-scale':
             inference_2_scale(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
-                              sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
-        elif inference_strategy == '3-scale':
-            inference_3_scale(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
                               sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
         elif inference_strategy == 'multimodel':
             inference_multimodel(model, additional_model, inference_loader, len(inference_dataset), annotation_dir,

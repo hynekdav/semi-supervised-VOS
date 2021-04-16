@@ -136,8 +136,6 @@ def prepare_first_frame(curr_video,
         weight_sparse_2 = get_spatial_weight((H_d_2, W_d_2), sigma2)
         label_1hot_2 = get_labels(label, d, H, W, H_d_2, W_d_2)
         return (label_1hot, label_1hot_2), d, palette, (weight_dense, weight_dense_2), (weight_sparse, weight_sparse_2)
-    elif inference_strategy == '3-scale':
-        pass
     elif inference_strategy == 'multimodel':
         # that's right, do nothing
         pass
