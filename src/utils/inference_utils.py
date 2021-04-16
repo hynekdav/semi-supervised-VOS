@@ -330,7 +330,7 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
         prediction_u = torch.nn.functional.interpolate(prediction_u.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
         # prediction_u = torch.argmax(prediction_u, 1).cpu()  # (1, H, W)
 
-        prediction = (prediction_o + prediction_u).cpu().half() # torch.maximum(prediction_o, prediction_u).cpu().half()
+        prediction = ((prediction_o + prediction_u) / 2).cpu().half() # torch.maximum(prediction_o, prediction_u).cpu().half()
         prediction = torch.argmax(prediction, 1).cpu()
 
         last_video = current_video
