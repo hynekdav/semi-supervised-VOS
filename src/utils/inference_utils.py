@@ -417,7 +417,7 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
         # prediction_a = torch.argmax(prediction_a, 1).cpu()  # (1, H, W)
 
         # prediction = torch.maximum(prediction_o, prediction_a).cpu().half()
-        prediction = torch.argmax((prediction_o + prediction_a), dim=1).cpu().half()
+        prediction = torch.argmax(torch.abs(prediction_o - prediction_a), dim=1).cpu().half()
 
         last_video = current_video
         frame_idx += 1
