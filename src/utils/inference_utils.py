@@ -391,7 +391,7 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
                                ref_num,
                                temperature)
         # Store all frames' features
-        new_label_o = # index_to_onehot(torch.argmax(prediction_o, 0), d).unsqueeze(1)
+        new_label_o = prediction_o.unsqueeze(1)# index_to_onehot(torch.argmax(prediction_o, 0), d).unsqueeze(1)
         label_history_o = torch.cat((label_history_o, new_label_o), 1)
         feats_history_o = torch.cat((feats_history_o, features_o), 0)
 
@@ -409,7 +409,7 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
                                ref_num,
                                temperature)
         # Store all frames' features
-        new_label_a = index_to_onehot(torch.argmax(prediction_a, 0), d).unsqueeze(1)
+        new_label_a = prediction_a.unsqueeze(1) # index_to_onehot(torch.argmax(prediction_a, 0), d).unsqueeze(1)
         label_history_a = torch.cat((label_history_a, new_label_a), 1)
         feats_history_a = torch.cat((feats_history_a, features_a), 0)
 
