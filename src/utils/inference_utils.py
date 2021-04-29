@@ -56,7 +56,7 @@ def inference_single(model, inference_loader, total_len, annotation_dir, last_vi
                              ref_num,
                              temperature)
         # Store all frames' features
-        new_label = index_to_onehot(torch.argmax(prediction, 0), d).unsqueeze(1)
+        new_label = prediction.unsqueeze(1) # index_to_onehot(torch.argmax(prediction, 0), d).unsqueeze(1)
         label_history = torch.cat((label_history, new_label), 1)
         feats_history = torch.cat((feats_history, features), 0)
 
