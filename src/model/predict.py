@@ -55,13 +55,13 @@ def predict(ref,
 
     # spatial weight and motion model
     global_similarity = global_similarity.contiguous().view(num_ref, H * W, H * W)
-    if frame_idx > 15:
-        # interval frames
-        global_similarity[:-Config.CONTINUOUS_FRAME] *= weight_sparse
-        # continuous frames
-        global_similarity[-Config.CONTINUOUS_FRAME:] *= weight_dense
-    else:
-        global_similarity = global_similarity.mul(weight_dense)
+    # if frame_idx > 15:
+    #     # interval frames
+    #     global_similarity[:-Config.CONTINUOUS_FRAME] *= weight_sparse
+    #     # continuous frames
+    #     global_similarity[-Config.CONTINUOUS_FRAME:] *= weight_dense
+    # else:
+    #     global_similarity = global_similarity.mul(weight_dense)
     global_similarity = global_similarity.view(-1, H * W)
 
     # get prediction
