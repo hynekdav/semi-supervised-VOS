@@ -359,7 +359,8 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
         feats_history_o = torch.cat((feats_history_o, features_o), 0)
 
         prediction_o = torch.nn.functional.interpolate(prediction_o.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
-        prediction_o = torch.argmax(prediction_o, 1).cpu()  # (1, H, W)
+        if not probability_propagation:
+            prediction_o = torch.argmax(prediction_o, 1).cpu()  # (1, H, W)
 
         (_, feature_dim, H_d, W_d) = features_u.shape
         prediction_u = predict(feats_history_u,
@@ -381,14 +382,15 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
         feats_history_u = torch.cat((feats_history_u, features_u), 0)
 
         prediction_u = torch.nn.functional.interpolate(prediction_u.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
-        prediction_u = torch.argmax(prediction_u, 1).cpu()  # (1, H, W)
+        if not probability_propagation:
+            prediction_u = torch.argmax(prediction_u, 1).cpu()  # (1, H, W)
 
         if probability_propagation:
             reduction = REDUCTIONS.get(reduction_str)
             prediction = reduction(prediction_o, prediction_u).cpu().half()
             prediction = torch.argmax(prediction, 1).cpu()  # (1, H, W)
         else:
-            prediction = torch.maximum(prediction_o, prediction_u).unsqueeze(0).cpu().half()
+            prediction = torch.maximum(prediction_o, prediction_u).cpu().half()
 
         last_video = current_video
         frame_idx += 1
