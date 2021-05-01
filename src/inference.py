@@ -42,15 +42,18 @@ from src.utils.utils import load_model
 @click.option('--probab/--no-probap', default=False, required=False, help='Should probability or labels be propagated.')
 @click.option('--scale', default=1.15, required=False, type=click.FLOAT,
               help='Scale for 2nd image in 2-scale strategy.')
+@click.option('--reduction', default='maximum',
+              type=click.Choice(['maximum', 'minimum', 'mean', 'addition', 'subtraction']),
+              help='Reduction operation for probability propagation.')
 def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                      inference_strategy, additional_model, additional_model_type, probab, scale):
+                      inference_strategy, additional_model, additional_model_type, probab, scale, reduction):
     inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                           inference_strategy, additional_model, additional_model_type, probab, scale)
+                           inference_strategy, additional_model, additional_model_type, probab, scale, reduction)
 
 
 def inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
                            inference_strategy, additional_resume, additional_model_type, probability_propagation,
-                           scale, disable=False):
+                           scale, reduction, disable=False):
     if Config.DEVICE.type != device:
         Config.DEVICE = torch.device(device)
     model = VOSNet(model=model)
@@ -85,17 +88,20 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
                              sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, disable)
         elif inference_strategy == 'hor-flip':
             inference_hor_flip(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
-                               sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, disable)
+                               sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, reduction,
+                               disable)
         elif inference_strategy == 'ver-flip':
             inference_ver_flip(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
-                               sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, disable)
+                               sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, reduction,
+                               disable)
         elif inference_strategy == '2-scale':
             inference_2_scale(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
                               sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, scale,
+                              reduction,
                               disable)
         elif inference_strategy == 'multimodel':
             inference_multimodel(model, additional_model, inference_loader, len(inference_dataset), annotation_dir,
                                  last_video, save, sigma_1, sigma_2, frame_range, ref_num, temperature,
-                                 probability_propagation, disable)
+                                 probability_propagation, reduction, disable)
 
     logger.info('Inference done.')
