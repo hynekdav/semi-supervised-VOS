@@ -460,7 +460,8 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
         feats_history_o = torch.cat((feats_history_o, features_o), 0)
 
         prediction_o = torch.nn.functional.interpolate(prediction_o.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
-        # prediction_o = torch.argmax(prediction_o, 1).cpu()  # (1, H, W)
+        if not probability_propagation:
+            prediction_o = torch.argmax(prediction_o, 1).cpu()  # (1, H, W)
 
         (_, feature_dim, H_d, W_d) = features_a.shape
         prediction_a = predict(feats_history_a,
@@ -482,7 +483,8 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
         feats_history_a = torch.cat((feats_history_a, features_a), 0)
 
         prediction_a = torch.nn.functional.interpolate(prediction_a.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
-        prediction_a = torch.argmax(prediction_a, 1).cpu()  # (1, H, W)
+        if not probability_propagation:
+            prediction_a = torch.argmax(prediction_a, 1).cpu()  # (1, H, W)
 
 
         if probability_propagation:
