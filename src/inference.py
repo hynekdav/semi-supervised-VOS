@@ -39,14 +39,18 @@ from src.utils.utils import load_model
               help='path to the additional checkpoint')
 @click.option('--additional-model-type', type=click.STRING, required=False, default='resnet50',
               help='path of the additional model')
+@click.option('--probab/--no-probap', default=False, required=False, help='Should probability or labels be propagated.')
+@click.option('--scale', default=1.15, required=False, type=click.FLOAT,
+              help='Scale for 2nd image in 2-scale strategy.')
 def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                      inference_strategy, additional_model, additional_model_type):
+                      inference_strategy, additional_model, additional_model_type, probab, scale):
     inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                           inference_strategy, additional_model, additional_model_type)
+                           inference_strategy, additional_model, additional_model_type, probab, scale)
 
 
 def inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                           inference_strategy, additional_resume, additional_model_type, disable=False):
+                           inference_strategy, additional_resume, additional_model_type, probability_propagation,
+                           scale, disable=False):
     if Config.DEVICE.type != device:
         Config.DEVICE = torch.device(device)
     model = VOSNet(model=model)
@@ -64,7 +68,7 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
         additional_model.eval()
 
     data_dir = Path(data) / 'JPEGImages/480p'
-    inference_dataset = InferenceDataset(data_dir, disable=disable, inference_strategy=inference_strategy)
+    inference_dataset = InferenceDataset(data_dir, disable=disable, inference_strategy=inference_strategy, scale=scale)
     inference_loader = torch.utils.data.DataLoader(inference_dataset,
                                                    batch_size=1,
                                                    shuffle=False,
@@ -78,18 +82,20 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
     with torch.no_grad():
         if inference_strategy == 'single':
             inference_single(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
-                             sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
+                             sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, disable)
         elif inference_strategy == 'hor-flip':
             inference_hor_flip(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
-                               sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
+                               sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, disable)
         elif inference_strategy == 'ver-flip':
             inference_ver_flip(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
-                               sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
+                               sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, disable)
         elif inference_strategy == '2-scale':
             inference_2_scale(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
-                              sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
+                              sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, scale,
+                              disable)
         elif inference_strategy == 'multimodel':
             inference_multimodel(model, additional_model, inference_loader, len(inference_dataset), annotation_dir,
-                                 last_video, save, sigma_1, sigma_2, frame_range, ref_num, temperature, disable)
+                                 last_video, save, sigma_1, sigma_2, frame_range, ref_num, temperature,
+                                 probability_propagation, disable)
 
     logger.info('Inference done.')

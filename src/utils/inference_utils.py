@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 
 def inference_single(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
-                     frame_range, ref_num, temperature, disable):
+                     frame_range, ref_num, temperature, probability_propagation, disable):
     global pred_visualize, palette, feats_history, label_history, weight_dense, weight_sparse, d
     frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
@@ -35,7 +35,8 @@ def inference_single(model, inference_loader, total_len, annotation_dir, last_vi
                 first_annotation,
                 sigma_1,
                 sigma_2,
-                inference_strategy='single')
+                inference_strategy='single',
+                probability_propagation=probability_propagation)
             frame_idx += 1
             last_video = current_video
             continue
@@ -54,9 +55,13 @@ def inference_single(model, inference_loader, total_len, annotation_dir, last_vi
                              frame_idx,
                              frame_range,
                              ref_num,
-                             temperature)
+                             temperature,
+                             probability_propagation)
         # Store all frames' features
-        new_label = index_to_onehot(torch.argmax(prediction, 0), d).unsqueeze(1)
+        if probability_propagation:
+            new_label = prediction.unsqueeze(1)
+        else:
+            new_label = index_to_onehot(torch.argmax(prediction, 0), d).unsqueeze(1)
         label_history = torch.cat((label_history, new_label), 1)
         feats_history = torch.cat((feats_history, features), 0)
 
@@ -77,7 +82,7 @@ def inference_single(model, inference_loader, total_len, annotation_dir, last_vi
 
 
 def inference_hor_flip(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
-                       frame_range, ref_num, temperature, disable):
+                       frame_range, ref_num, temperature, probability_propagation, disable):
     global pred_visualize, palette, feats_history_l, label_history_l, weight_dense, weight_sparse, feats_history_r, label_history_r, d
     frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
@@ -99,7 +104,8 @@ def inference_hor_flip(model, inference_loader, total_len, annotation_dir, last_
                 first_annotation,
                 sigma_1,
                 sigma_2,
-                inference_strategy='hor-flip')
+                inference_strategy='hor-flip',
+                probability_propagation=probability_propagation)
             frame_idx += 1
             last_video = current_video
             continue
@@ -120,9 +126,13 @@ def inference_hor_flip(model, inference_loader, total_len, annotation_dir, last_
                                frame_idx,
                                frame_range,
                                ref_num,
-                               temperature)
+                               temperature,
+                               probability_propagation)
         # Store all frames' features
-        new_label_l = index_to_onehot(torch.argmax(prediction_l, 0), d).unsqueeze(1)
+        if probability_propagation:
+            new_label_l = prediction_l.unsqueeze(1)
+        else:
+            new_label_l = index_to_onehot(torch.argmax(prediction_l, 0), d).unsqueeze(1)
         label_history_l = torch.cat((label_history_l, new_label_l), 1)
         feats_history_l = torch.cat((feats_history_l, features_l), 0)
 
@@ -139,9 +149,13 @@ def inference_hor_flip(model, inference_loader, total_len, annotation_dir, last_
                                frame_idx,
                                frame_range,
                                ref_num,
-                               temperature)
+                               temperature,
+                               probability_propagation)
         # Store all frames' features
-        new_label_r = index_to_onehot(torch.argmax(prediction_r, 0), d).unsqueeze(1)
+        if probability_propagation:
+            new_label_r = prediction_r.unsqueeze(1)
+        else:
+            new_label_r = index_to_onehot(torch.argmax(prediction_r, 0), d).unsqueeze(1)
         label_history_r = torch.cat((label_history_r, new_label_r), 1)
         feats_history_r = torch.cat((feats_history_r, features_r), 0)
 
@@ -167,7 +181,7 @@ def inference_hor_flip(model, inference_loader, total_len, annotation_dir, last_
 
 
 def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
-                       frame_range, ref_num, temperature, disable):
+                       frame_range, ref_num, temperature, probability_propagation, disable):
     global pred_visualize, palette, feats_history_l, label_history_l, weight_dense, weight_sparse, feats_history_r, label_history_r, d
     frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
@@ -189,7 +203,8 @@ def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_
                 first_annotation,
                 sigma_1,
                 sigma_2,
-                inference_strategy='ver-flip')
+                inference_strategy='ver-flip',
+                probability_propagation=probability_propagation)
             frame_idx += 1
             last_video = current_video
             continue
@@ -210,9 +225,13 @@ def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_
                                frame_idx,
                                frame_range,
                                ref_num,
-                               temperature)
+                               temperature,
+                               probability_propagation)
         # Store all frames' features
-        new_label_l = index_to_onehot(torch.argmax(prediction_l, 0), d).unsqueeze(1)
+        if probability_propagation:
+            new_label_l = prediction_l.unsqueeze(1)
+        else:
+            new_label_l = index_to_onehot(torch.argmax(prediction_l, 0), d).unsqueeze(1)
         label_history_l = torch.cat((label_history_l, new_label_l), 1)
         feats_history_l = torch.cat((feats_history_l, features_l), 0)
 
@@ -229,9 +248,13 @@ def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_
                                frame_idx,
                                frame_range,
                                ref_num,
-                               temperature)
+                               temperature,
+                               probability_propagation)
         # Store all frames' features
-        new_label_r = index_to_onehot(torch.argmax(prediction_r, 0), d).unsqueeze(1)
+        if probability_propagation:
+            new_label_r = prediction_l.unsqueeze(1)
+        else:
+            new_label_r = index_to_onehot(torch.argmax(prediction_r, 0), d).unsqueeze(1)
         label_history_r = torch.cat((label_history_r, new_label_r), 1)
         feats_history_r = torch.cat((feats_history_r, features_r), 0)
 
@@ -257,8 +280,8 @@ def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_
 
 
 def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
-                      frame_range, ref_num, temperature, disable):
-    global pred_visualize, palette, feats_history_o, label_history_o, weight_dense_o, weight_sparse_o, feats_history_u, label_history_u, weight_dense_u, weight_sparse_u
+                      frame_range, ref_num, temperature, probability_propagation, scale, disable):
+    global pred_visualize, palette, feats_history_o, label_history_o, weight_dense_o, weight_sparse_o, feats_history_u, label_history_u, weight_dense_u, weight_sparse_u, d
     frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
         if current_video != last_video:
@@ -279,7 +302,9 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
                 first_annotation,
                 sigma_1,
                 sigma_2,
-                inference_strategy='2-scale')
+                inference_strategy='2-scale',
+                probability_propagation=probability_propagation,
+                scale=scale)
             frame_idx += 1
             last_video = current_video
             label_history_o, label_history_u = label_history
@@ -303,9 +328,13 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
                                frame_idx,
                                frame_range,
                                ref_num,
-                               temperature)
+                               temperature,
+                               probability_propagation)
         # Store all frames' features
-        new_label_o = index_to_onehot(torch.argmax(prediction_o, 0), d).unsqueeze(1)
+        if probability_propagation:
+            new_label_o = prediction_o.unsqueeze(1)
+        else:
+            new_label_o = index_to_onehot(torch.argmax(prediction_o, 0), d).unsqueeze(1)
         label_history_o = torch.cat((label_history_o, new_label_o), 1)
         feats_history_o = torch.cat((feats_history_o, features_o), 0)
 
@@ -321,9 +350,13 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
                                frame_idx,
                                frame_range,
                                ref_num,
-                               temperature)
+                               temperature,
+                               probability_propagation)
         # Store all frames' features
-        new_label_u = index_to_onehot(torch.argmax(prediction_u, 0), d).unsqueeze(1)
+        if probability_propagation:
+            new_label_u = prediction_u.unsqueeze(1)
+        else:
+            new_label_u = index_to_onehot(torch.argmax(prediction_u, 0), d).unsqueeze(1)
         label_history_u = torch.cat((label_history_u, new_label_u), 1)
         feats_history_u = torch.cat((feats_history_u, features_u), 0)
 
@@ -346,7 +379,7 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
 
 
 def inference_multimodel(model, additional_model, inference_loader, total_len, annotation_dir, last_video, save,
-                         sigma_1, sigma_2, frame_range, ref_num, temperature, disable):
+                         sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, disable):
     global pred_visualize, label_history_a, feats_history_a, weight_sparse, weight_dense, label_history_o, feats_history_o, d, palette
     frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
@@ -367,7 +400,8 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
                 first_annotation,
                 sigma_1,
                 sigma_2,
-                inference_strategy='multimodel')
+                inference_strategy='multimodel',
+                probability_propagation=probability_propagation)
             frame_idx += 1
             last_video = current_video
             label_history_o = label_history
@@ -389,9 +423,13 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
                                frame_idx,
                                frame_range,
                                ref_num,
-                               temperature)
+                               temperature,
+                               probability_propagation)
         # Store all frames' features
-        new_label_o = index_to_onehot(torch.argmax(prediction_o, 0), d).unsqueeze(1)
+        if probability_propagation:
+            new_label_o = prediction_o.unsqueeze(1)
+        else:
+            new_label_o = index_to_onehot(torch.argmax(prediction_o, 0), d).unsqueeze(1)
         label_history_o = torch.cat((label_history_o, new_label_o), 1)
         feats_history_o = torch.cat((feats_history_o, features_o), 0)
 
@@ -407,9 +445,13 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
                                frame_idx,
                                frame_range,
                                ref_num,
-                               temperature)
+                               temperature,
+                               probability_propagation)
         # Store all frames' features
-        new_label_a = index_to_onehot(torch.argmax(prediction_a, 0), d).unsqueeze(1)
+        if probability_propagation:
+            new_label_a = prediction_a.unsqueeze(1)
+        else:
+            new_label_a = index_to_onehot(torch.argmax(prediction_a, 0), d).unsqueeze(1)
         label_history_a = torch.cat((label_history_a, new_label_a), 1)
         feats_history_a = torch.cat((feats_history_a, features_a), 0)
 
