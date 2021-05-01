@@ -88,7 +88,7 @@ def inference_single(model, inference_loader, total_len, annotation_dir, last_vi
 
 
 def inference_hor_flip(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
-                       frame_range, ref_num, temperature, probability_propagation, reduction, disable):
+                       frame_range, ref_num, temperature, probability_propagation, reduction_str, disable):
     global pred_visualize, palette, feats_history_l, label_history_l, weight_dense, weight_sparse, feats_history_r, label_history_r, d
     frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
@@ -177,7 +177,7 @@ def inference_hor_flip(model, inference_loader, total_len, annotation_dir, last_
         frame_idx += 1
 
         if probability_propagation:
-            reduction = REDUCTIONS.get(reduction)
+            reduction = REDUCTIONS.get(reduction_str)
             prediction = reduction(prediction_l, prediction_r).unsqueeze(0).cpu().half()
             prediction = torch.argmax(prediction, 1).cpu()  # (1, H, W)
         else:
@@ -194,7 +194,7 @@ def inference_hor_flip(model, inference_loader, total_len, annotation_dir, last_
 
 
 def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
-                       frame_range, ref_num, temperature, probability_propagation, reduction, disable):
+                       frame_range, ref_num, temperature, probability_propagation, reduction_str, disable):
     global pred_visualize, palette, feats_history_l, label_history_l, weight_dense, weight_sparse, feats_history_r, label_history_r, d
     frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
@@ -283,7 +283,7 @@ def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_
         frame_idx += 1
 
         if probability_propagation:
-            reduction = REDUCTIONS.get(reduction)
+            reduction = REDUCTIONS.get(reduction_str)
             prediction = reduction(prediction_l, prediction_r).unsqueeze(0).cpu().half()
             prediction = torch.argmax(prediction, 1).cpu()  # (1, H, W)
         else:
@@ -300,7 +300,7 @@ def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_
 
 
 def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
-                      frame_range, ref_num, temperature, probability_propagation, scale, reduction, disable):
+                      frame_range, ref_num, temperature, probability_propagation, scale, reduction_str, disable):
     global pred_visualize, palette, feats_history_o, label_history_o, weight_dense_o, weight_sparse_o, feats_history_u, label_history_u, weight_dense_u, weight_sparse_u, d
     frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
@@ -384,7 +384,7 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
         prediction_u = torch.argmax(prediction_u, 1).cpu()  # (1, H, W)
 
         if probability_propagation:
-            reduction = REDUCTIONS.get(reduction)
+            reduction = REDUCTIONS.get(reduction_str)
             prediction = reduction(prediction_o, prediction_u).unsqueeze(0).cpu().half()
             prediction = torch.argmax(prediction, 1).cpu()  # (1, H, W)
         else:
@@ -404,7 +404,7 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
 
 
 def inference_multimodel(model, additional_model, inference_loader, total_len, annotation_dir, last_video, save,
-                         sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, reduction,
+                         sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, reduction_str,
                          disable):
     global pred_visualize, label_history_a, feats_history_a, weight_sparse, weight_dense, label_history_o, feats_history_o, d, palette
     frame_idx = 0
@@ -488,7 +488,7 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
 
 
         if probability_propagation:
-            reduction = REDUCTIONS.get(reduction)
+            reduction = REDUCTIONS.get(reduction_str)
             prediction = reduction(prediction_o, prediction_a).unsqueeze(0).cpu().half()
             prediction = torch.argmax(prediction, 1).cpu()  # (1, H, W)
         else:
