@@ -178,7 +178,7 @@ def inference_hor_flip(model, inference_loader, total_len, annotation_dir, last_
 
         if probability_propagation:
             reduction = REDUCTIONS.get(reduction_str)
-            prediction = reduction(prediction_l, prediction_r).unsqueeze(0).cpu().half()
+            prediction = reduction(prediction_l, prediction_r).cpu().half()
             prediction = torch.argmax(prediction, 1).cpu()  # (1, H, W)
         else:
             prediction = torch.maximum(prediction_l, prediction_r).unsqueeze(0).cpu().half()
@@ -284,7 +284,7 @@ def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_
 
         if probability_propagation:
             reduction = REDUCTIONS.get(reduction_str)
-            prediction = reduction(prediction_l, prediction_r).unsqueeze(0).cpu().half()
+            prediction = reduction(prediction_l, prediction_r).cpu().half()
             prediction = torch.argmax(prediction, 1).cpu()  # (1, H, W)
         else:
             prediction = torch.maximum(prediction_l, prediction_r).unsqueeze(0).cpu().half()
@@ -385,7 +385,7 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
 
         if probability_propagation:
             reduction = REDUCTIONS.get(reduction_str)
-            prediction = reduction(prediction_o, prediction_u).unsqueeze(0).cpu().half()
+            prediction = reduction(prediction_o, prediction_u).cpu().half()
             prediction = torch.argmax(prediction, 1).cpu()  # (1, H, W)
         else:
             prediction = torch.maximum(prediction_o, prediction_u).unsqueeze(0).cpu().half()
@@ -489,7 +489,7 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
 
         if probability_propagation:
             reduction = REDUCTIONS.get(reduction_str)
-            prediction = reduction(prediction_o, prediction_a).unsqueeze(0).cpu().half()
+            prediction = reduction(prediction_o, prediction_a).cpu().half()
             prediction = torch.argmax(prediction, 1).cpu()  # (1, H, W)
         else:
             prediction = torch.maximum(prediction_o, prediction_a).unsqueeze(0).cpu().half()
