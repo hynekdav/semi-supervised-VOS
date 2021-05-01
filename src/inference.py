@@ -33,7 +33,7 @@ from src.utils.utils import load_model
               help='path to save predictions')
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
 @click.option('--inference-strategy',
-              type=click.Choice(['single', 'hor-flip', 'vert-flip', '2-scale', 'multimodel']),
+              type=click.Choice(['single', 'hor-flip', 'ver-flip', '2-scale', 'multimodel']),
               default='single', help='Inference strategy.')
 @click.option('--additional-model', type=click.Path(file_okay=True, dir_okay=False), required=False,
               help='path to the additional checkpoint')
