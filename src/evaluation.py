@@ -65,8 +65,11 @@ def evaluation_command_impl(ground_truth, computed_results, disable=False):
                zip(ground_truth, computed)]
         scores = [p.get() for p in res]
         pbar.close()
-    j = np.array(scores)
+    scores = np.array(scores)
+    j = scores[:, 0]
+    f = scores[:, 1]
     j_mean = j.mean()
-    # f_mean = f.mean()
-    logger.info(f'Evaluated: j_mean={j_mean}.')  # f_mean={f_mean}.')
-    return j_mean  # , f_mean
+    f_mean = f.mean()
+    jf_mean = np.array([j_mean, f_mean]).mean()
+    logger.info(f'Evaluated: j_mean={j_mean}, f_mean={f_mean}, j&f_mean={jf_mean}.')
+    return j_mean, f_mean, jf_mean
