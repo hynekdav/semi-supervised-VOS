@@ -24,7 +24,8 @@ def predict(ref,
             frame_idx,
             range,
             ref_num,
-            temperature):
+            temperature,
+            probability_propagation):
     """
     The Predict Function.
     :param ref: (N, feature_dim, H, W)
@@ -55,13 +56,14 @@ def predict(ref,
 
     # spatial weight and motion model
     global_similarity = global_similarity.contiguous().view(num_ref, H * W, H * W)
-    # if frame_idx > 15:
-    #     # interval frames
-    #     global_similarity[:-Config.CONTINUOUS_FRAME] *= weight_sparse
-    #     # continuous frames
-    #     global_similarity[-Config.CONTINUOUS_FRAME:] *= weight_dense
-    # else:
-    #     global_similarity = global_similarity.mul(weight_dense)
+    if not probability_propagation:
+        if frame_idx > 15:
+            # interval frames
+            global_similarity[:-Config.CONTINUOUS_FRAME] *= weight_sparse
+            # continuous frames
+            global_similarity[-Config.CONTINUOUS_FRAME:] *= weight_dense
+        else:
+            global_similarity = global_similarity.mul(weight_dense)
     global_similarity = global_similarity.view(-1, H * W)
 
     # get prediction
@@ -99,7 +101,9 @@ def prepare_first_frame(curr_video,
                         annotation,
                         sigma1=8,
                         sigma2=21,
-                        inference_strategy='single'):
+                        inference_strategy='single',
+                        probability_propagation=False,
+                        scale=None):
     first_annotation = Image.open(annotation)
     (H, W) = np.asarray(first_annotation).shape
     H_d = int(np.ceil(H * Config.SCALE))
@@ -110,8 +114,8 @@ def prepare_first_frame(curr_video,
     label = torch.Tensor(label).long().to(Config.DEVICE)  # (1, H, W)
     label_1hot = get_labels(label, d, H, W, H_d, W_d)
 
-    weight_dense = get_spatial_weight((H_d, W_d), sigma1)
-    weight_sparse = get_spatial_weight((H_d, W_d), sigma2)
+    weight_dense = get_spatial_weight((H_d, W_d), sigma1) if not probability_propagation else None
+    weight_sparse = get_spatial_weight((H_d, W_d), sigma2) if not probability_propagation else None
 
     if save_prediction is not None:
         if not os.path.exists(save_prediction):
@@ -130,10 +134,10 @@ def prepare_first_frame(curr_video,
         label_1hot_flipped = get_labels(torch.flipud(label), d, H, W, H_d, W_d)
         return label_1hot, label_1hot_flipped, d, palette, weight_dense, weight_sparse
     elif inference_strategy == '2-scale':
-        H_d_2 = int(np.ceil(H * Config.SCALE * 0.9))
-        W_d_2 = int(np.ceil(W * Config.SCALE * 0.9))
-        weight_dense_2 = get_spatial_weight((H_d_2, W_d_2), sigma1)
-        weight_sparse_2 = get_spatial_weight((H_d_2, W_d_2), sigma2)
+        H_d_2 = int(np.ceil(H * Config.SCALE * scale))
+        W_d_2 = int(np.ceil(W * Config.SCALE * scale))
+        weight_dense_2 = get_spatial_weight((H_d_2, W_d_2), sigma1) if not probability_propagation else None
+        weight_sparse_2 = get_spatial_weight((H_d_2, W_d_2), sigma2) if not probability_propagation else None
         label_1hot_2 = get_labels(label, d, H, W, H_d_2, W_d_2)
         return (label_1hot, label_1hot_2), d, palette, (weight_dense, weight_dense_2), (weight_sparse, weight_sparse_2)
     elif inference_strategy == 'multimodel':

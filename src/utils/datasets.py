@@ -120,7 +120,8 @@ class InferenceDataset(datasets.ImageFolder):
                  transform=None,
                  target_transform=None,
                  disable=False,
-                 inference_strategy='single'):
+                 inference_strategy='single',
+                 scale=None):
         super(InferenceDataset, self).__init__(root,
                                                transform=transform,
                                                target_transform=target_transform)
@@ -136,6 +137,7 @@ class InferenceDataset(datasets.ImageFolder):
         logger.info(f'Loaded {len(self.img_bytes)} inference images.')
         self.idx_to_class = {v: k for k, v in self.class_to_idx.items()}
         self.inference_strategy = inference_strategy
+        self.scale = scale
 
     def __getitem__(self, index):
         path, video_index = self.imgs[index]
@@ -153,7 +155,7 @@ class InferenceDataset(datasets.ImageFolder):
             normalized_flipped = self.rgb_normalize(np.asarray(img))
             return (normalized, normalized_flipped), self.idx_to_class[video_index]
         elif self.inference_strategy == '2-scale':
-            img_2_size = np.ceil(np.array(img.size) * 0.9).astype(np.int)
+            img_2_size = np.ceil(np.array(img.size) * self.scale).astype(np.int)
             img_2 = img.resize(img_2_size, Image.ANTIALIAS)
             normalized_2 = self.rgb_normalize(np.asarray(img_2))
             return (normalized, normalized_2), self.idx_to_class[video_index]

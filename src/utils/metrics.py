@@ -4,11 +4,12 @@
 import math
 
 import skimage
+from skimage.morphology import disk
 import numpy as np
 
 
 def evaluate_segmentation(annotation, segmentation, void_pixels=None, threshold=0.008):
-    return eval_j(annotation, segmentation, void_pixels)  # , eval_f(annotation, segmentation, void_pixels, threshold)
+    return eval_j(annotation, segmentation, void_pixels), eval_f(annotation, segmentation, void_pixels, threshold)
 
 
 def eval_j(annotation, segmentation, void_pixels=None):
@@ -86,8 +87,6 @@ def f_measure(foreground_mask, gt_mask, void_pixels=None, bound_th=0.008):
     # Get the pixel boundaries of both masks
     fg_boundary = _seg2bmap(foreground_mask * np.logical_not(void_pixels))
     gt_boundary = _seg2bmap(gt_mask * np.logical_not(void_pixels))
-
-    from skimage.morphology import disk
 
     # fg_dil = binary_dilation(fg_boundary, disk(bound_pix))
     fg_dil = skimage.morphology.dilation(fg_boundary.astype(np.uint8), disk(bound_pix).astype(np.uint8))
