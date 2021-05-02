@@ -73,7 +73,7 @@ class ContrastiveLoss(nn.Module):
         self.nllloss = nn.NLLLoss()
         self.contrastive_loss = nn.CosineEmbeddingLoss()
 
-    def forward(self, ref, target, ref_label, target_label, _, __):
+    def forward(self, ref, target, ref_label, target_label, _, __, ___):
         """
         let Nt = num of target pixels, Nr = num of ref pixels
         :param ref: (batchSize, num_ref, feature_dim, H, W)
