@@ -266,7 +266,7 @@ def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_
                                probability_propagation)
         # Store all frames' features
         if probability_propagation:
-            new_label_r = prediction_l.unsqueeze(1)
+            new_label_r = prediction_r.unsqueeze(1)
         else:
             new_label_r = index_to_onehot(torch.argmax(prediction_r, 0), d).unsqueeze(1)
         label_history_r = torch.cat((label_history_r, new_label_r), 1)
