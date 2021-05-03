@@ -352,9 +352,14 @@ class SkeletonWithDistanceTransformMiner(AbstractTripletMiner):
         if len(all_anchors) == 0:
             return torch.tensor([]), torch.tensor([]), torch.tensor([])
 
-        anchors = torch.stack(all_anchors)
-        positives = torch.stack(all_positives)
-        negatives = torch.stack(all_negatives)
+        try:
+            anchors = torch.stack(all_anchors)
+            positives = torch.stack(all_positives)
+            negatives = torch.stack(all_negatives)
+        except Exception:
+            anchors = torch.cat(all_anchors)
+            positives = torch.cat(all_positives)
+            negatives = torch.cat(all_negatives)
 
         anchors, positives, negatives = self.limit_triplets((anchors, positives, negatives))
         return anchors, positives, negatives
