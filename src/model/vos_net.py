@@ -2,6 +2,7 @@
 # ! python3
 import torch
 import torch.nn as nn
+from torch.nn.functional import normalize
 
 from src.model.backbone.resnet import resnet18, resnet50, resnet101
 
@@ -47,6 +48,7 @@ class VOSNet(nn.Module):
             x = self.backbone(x)
             x = self.adjust_dim(x)
             x = self.bn256(x)
+            x = normalize(x, p=2)
 
         return x
 
