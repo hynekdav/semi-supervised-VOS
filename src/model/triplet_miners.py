@@ -54,10 +54,10 @@ class AbstractTripletMiner(ABC):
         pass
 
     def limit_triplets(self, triplets):
-        assert len(triplets) == 3
-        assert len(triplets[0].shape) == 3
         if self._max_triplets == 0 or triplets[0].shape[1] <= self._max_triplets:
             return triplets
+        assert len(triplets) == 3
+        assert len(triplets[0].shape) == 3
         batch_num = triplets[0].shape[0]
 
         indices = []
