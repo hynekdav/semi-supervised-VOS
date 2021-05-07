@@ -42,8 +42,7 @@ from src.utils.utils import load_model
 @click.option('--probab/--no-probap', default=False, required=False, help='Should probability or labels be propagated.')
 @click.option('--scale', default=1.15, required=False, type=click.FLOAT,
               help='Scale for 2nd image in 2-scale strategy.')
-@click.option('--reduction', default='mean',
-              type=click.Choice(['maximum', 'minimum', 'mean', 'addition', 'subtraction']),
+@click.option('--reduction', default='mean', type=click.Choice(['maximum', 'minimum', 'mean']),
               help='Reduction operation for probability propagation.')
 def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
                       inference_strategy, additional_model, additional_model_type, probab, scale, reduction):

@@ -15,9 +15,7 @@ from tqdm import tqdm
 
 REDUCTIONS = {'maximum': lambda x, y: torch.maximum(x, y),
               'minimum': lambda x, y: torch.minimum(x, y),
-              'mean': lambda x, y: (x + y) / 2.0,
-              'addition': lambda x, y: x + y,
-              'subtraction': lambda x, y: torch.abs(x - y)}
+              'mean': lambda x, y: (x + y) / 2.0}
 
 
 def inference_single(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
