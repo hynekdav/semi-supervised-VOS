@@ -33,7 +33,7 @@ from src.utils.utils import load_model
               help='path to save predictions')
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
 @click.option('--inference-strategy',
-              type=click.Choice(['single', 'hor-flip', 'vert-flip', '2-scale', 'multimodel']),
+              type=click.Choice(['single', 'hor-flip', 'vert-flip', '2-scale', 'multimodel', 'hor-2-scale']),
               default='single', help='Inference strategy.')
 @click.option('--additional-model', type=click.Path(file_okay=True, dir_okay=False), required=False,
               help='path to the additional checkpoint')
@@ -96,11 +96,14 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
         elif inference_strategy == '2-scale':
             inference_2_scale(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
                               sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, scale,
-                              reduction,
-                              disable)
+                              reduction, False, disable)
         elif inference_strategy == 'multimodel':
             inference_multimodel(model, additional_model, inference_loader, len(inference_dataset), annotation_dir,
                                  last_video, save, sigma_1, sigma_2, frame_range, ref_num, temperature,
                                  probability_propagation, reduction, disable)
+        elif inference_strategy == 'hor-2-scale':
+            inference_2_scale(model, inference_loader, len(inference_dataset), annotation_dir, last_video, save,
+                              sigma_1, sigma_2, frame_range, ref_num, temperature, probability_propagation, scale,
+                              reduction, True, disable)
 
     logger.info('Inference done.')

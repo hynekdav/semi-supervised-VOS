@@ -298,7 +298,8 @@ def inference_ver_flip(model, inference_loader, total_len, annotation_dir, last_
 
 
 def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
-                      frame_range, ref_num, temperature, probability_propagation, scale, reduction_str, disable):
+                      frame_range, ref_num, temperature, probability_propagation, scale, reduction_str, flip_pred,
+                      disable):
     global pred_visualize, palette, feats_history_o, label_history_o, weight_dense_o, weight_sparse_o, feats_history_u, label_history_u, weight_dense_u, weight_sparse_u, d
     frame_idx = 0
     for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
@@ -372,6 +373,8 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
                                temperature,
                                probability_propagation)
         # Store all frames' features
+        if flip_pred:
+            prediction_u = torch.fliplr(prediction_u)
         if probability_propagation:
             new_label_u = prediction_u.unsqueeze(1)
         else:
@@ -485,7 +488,6 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
         prediction_a = torch.nn.functional.interpolate(prediction_a.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
         if not probability_propagation:
             prediction_a = torch.argmax(prediction_a, 1).cpu()  # (1, H, W)
-
 
         if probability_propagation:
             reduction = REDUCTIONS.get(reduction_str)

@@ -154,8 +154,10 @@ class InferenceDataset(datasets.ImageFolder):
             img = ImageOps.flip(img)
             normalized_flipped = self.rgb_normalize(np.asarray(img))
             return (normalized, normalized_flipped), self.idx_to_class[video_index]
-        elif self.inference_strategy == '2-scale':
+        elif self.inference_strategy == '2-scale' or self.inference_strategy == 'hor-2-scale':
             img_2_size = np.ceil(np.array(img.size) * self.scale).astype(np.int)
+            if self.inference_strategy == 'hor-2-scale':
+                img = ImageOps.mirror(img)
             img_2 = img.resize(img_2_size, Image.ANTIALIAS)
             normalized_2 = self.rgb_normalize(np.asarray(img_2))
             return (normalized, normalized_2), self.idx_to_class[video_index]

@@ -133,7 +133,7 @@ def prepare_first_frame(curr_video,
     elif inference_strategy == 'ver-flip':
         label_1hot_flipped = get_labels(torch.flipud(label), d, H, W, H_d, W_d)
         return label_1hot, label_1hot_flipped, d, palette, weight_dense, weight_sparse
-    elif inference_strategy == '2-scale':
+    elif inference_strategy == '2-scale' or inference_strategy == 'hor-2-scale':
         H_d_2 = int(np.ceil(H * Config.SCALE * scale))
         W_d_2 = int(np.ceil(W * Config.SCALE * scale))
         weight_dense_2 = get_spatial_weight((H_d_2, W_d_2), sigma1) if not probability_propagation else None
