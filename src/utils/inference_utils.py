@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 from src.config import Config
 from src.model.predict import prepare_first_frame, predict
+from src.utils.transforms import hflip
 from src.utils.utils import save_predictions, index_to_onehot
 from tqdm import tqdm
 
@@ -384,7 +385,7 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
         if not probability_propagation:
             prediction_u = torch.argmax(prediction_u, 1).cpu()  # (1, H, W)
         if flip_pred:
-            prediction_u = torch.fliplr(prediction_u)
+            prediction_u = hflip(prediction_u)
 
         if probability_propagation:
             reduction = REDUCTIONS.get(reduction_str)

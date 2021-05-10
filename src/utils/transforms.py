@@ -97,3 +97,34 @@ def make_dataset(dir, class_to_idx):
                 item = (path, class_to_idx[target])
                 images.append(item)
     return images
+
+
+def hflip(input: torch.Tensor) -> torch.Tensor:
+    r"""Horizontally flip a tensor image or a batch of tensor images. Input must
+    be a tensor of shape (C, H, W) or a batch of tensors :math:`(*, C, H, W)`.
+
+    Args:
+        input (torch.Tensor): input tensor
+
+    Returns:
+        torch.Tensor: The horizontally flipped image tensor
+
+    """
+    w = input.shape[-1]
+    return input[..., torch.arange(w - 1, -1, -1, device=input.device)]
+
+
+def vflip(input: torch.Tensor) -> torch.Tensor:
+    r"""Vertically flip a tensor image or a batch of tensor images. Input must
+    be a tensor of shape (C, H, W) or a batch of tensors :math:`(*, C, H, W)`.
+
+    Args:
+        input (torch.Tensor): input tensor
+
+    Returns:
+        torch.Tensor: The vertically flipped image tensor
+
+    """
+
+    h = input.shape[-2]
+    return input[..., torch.arange(h - 1, -1, -1, device=input.device), :]
