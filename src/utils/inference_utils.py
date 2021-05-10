@@ -508,7 +508,3 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
     # save last video's prediction
     pred_visualize = pred_visualize.cpu().numpy()
     save_predictions(pred_visualize, palette, save, last_video)
-
-
-from pytorch_metric_learning import trainers
-t = trainers.MetricLossOnly
