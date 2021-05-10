@@ -373,8 +373,6 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
                                temperature,
                                probability_propagation)
         # Store all frames' features
-        if flip_pred:
-            prediction_u = torch.fliplr(prediction_u)
         if probability_propagation:
             new_label_u = prediction_u.unsqueeze(1)
         else:
@@ -385,6 +383,8 @@ def inference_2_scale(model, inference_loader, total_len, annotation_dir, last_v
         prediction_u = torch.nn.functional.interpolate(prediction_u.view(1, d, H_d, W_d), size=(H, W), mode='nearest')
         if not probability_propagation:
             prediction_u = torch.argmax(prediction_u, 1).cpu()  # (1, H, W)
+        if flip_pred:
+            prediction_u = torch.fliplr(prediction_u)
 
         if probability_propagation:
             reduction = REDUCTIONS.get(reduction_str)
