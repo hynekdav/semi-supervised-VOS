@@ -14,8 +14,7 @@ from tqdm import tqdm
 
 from src.config import Config
 from src.model.loss import CrossEntropy, FocalLoss, ContrastiveLoss, TripletLossWithMiner
-from src.model.triplet_miners import get_miner, TemporalMiner, OneBackOneAheadMiner, SkeletonTemporalMiner, \
-    WrongPredictionsMiner
+from src.model.triplet_miners import get_miner, TemporalMiner, OneBackOneAheadMiner, SkeletonTemporalMiner
 from src.model.vos_net import VOSNet
 from src.utils.datasets import TrainDataset
 from src.utils.early_stopping import EarlyStopping

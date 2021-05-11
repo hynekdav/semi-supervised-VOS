@@ -14,7 +14,6 @@ from torchvision.transforms import transforms
 from tqdm import tqdm
 
 from .transforms import get_crop_params, crop, FixedColorJitter
-from ..config import Config
 
 
 class TrainDataset(datasets.ImageFolder):
