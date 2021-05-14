@@ -34,7 +34,7 @@ python visualization.py <command> --help}.
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 ## Author
-Created by [Hynek Davídek](davidhyn@fel.cvut.cz).
+Created by [Hynek Davídek](mailto:davidhyn@fel.cvut.cz).
 
 
 ## License
