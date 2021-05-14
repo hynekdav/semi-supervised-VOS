@@ -38,7 +38,7 @@ from src.utils.utils import color_to_class, load_model
 @click.option('--freeze/--no-freeze', default=True)
 @click.option('--miner', type=click.Choice(['default', 'kernel_7x7', 'temporal', 'one_back_one_ahead',
                                             'euclidean', 'manhattan', 'chebyshev', 'skeleton',
-                                            'skeleton_distance_transform', 'skeleton_temporal', 'wrong_predictions']),
+                                            'skeleton_nearest_negative', 'skeleton_temporal']),
               default='default', help='Triplet loss miner.')
 @click.option('--margin', type=click.FloatRange(min=0.0, max=1.0), default=0.1, help='Triplet loss margin.')
 @click.option('--loss_weight', type=click.FloatRange(min=0.0), default=1.0, help='Weight of triplet loss.')

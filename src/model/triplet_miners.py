@@ -7,13 +7,8 @@ from __future__ import generator_stop
 
 import functools
 from abc import ABC, abstractmethod
-from collections import defaultdict
-from hashlib import sha1
-from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 import torch
 import torch.nn.functional as F
 from scipy import ndimage
@@ -32,9 +27,8 @@ def get_miner(miner_name):
               'manhattan': DistanceTransformationMiner(metric='manhattan'),
               'chebyshev': DistanceTransformationMiner(metric='chessboard'),
               'skeleton': SkeletonMiner(),
-              'skeleton_distance_transform': SkeletonWithDistanceTransformMiner(),
-              'skeleton_temporal': SkeletonTemporalMiner(),
-              'wrong_predictions': WrongPredictionsMiner()}
+              'skeleton_nearest_negative': SkeletonWithDistanceTransformMiner(),
+              'skeleton_temporal': SkeletonTemporalMiner()}
     return miners.get(miner_name)
 
 
@@ -372,113 +366,3 @@ class SkeletonTemporalMiner(AbstractTripletMiner):
 
     def get_triplets(self, embeddings, labels, prediction):
         return self._miner.get_triplets(embeddings, labels, prediction)
-
-
-def heatmap(array, save_path, epoch_idx):
-    if array.shape != (32, 32):
-        array = array.view(32, 32)
-    sns.heatmap(array)
-    plt.title(f'{save_path.stem} - epoch {epoch_idx}')
-    plt.savefig(save_path)
-    plt.close()
-
-
-def distribution(array, save_path, epoch_idx):
-    sns.distplot(array, bins=100)
-    plt.title(f'{save_path.stem} - epoch {epoch_idx}')
-    plt.savefig(save_path)
-    plt.close()
-
-
-class WrongPredictionsMiner(AbstractTripletMiner):
-    def __init__(self):
-        super().__init__()
-        self._indexer = defaultdict(lambda: 0)
-        self._path = Path('extra-data')
-        self._path.mkdir(parents=True, exist_ok=True)
-
-    def _save_predictions(self, idx, predictions, ground_truth, predictions_difference, extra):
-        predictions = predictions.cpu()
-        ground_truth = ground_truth.cpu()
-        predictions_difference = predictions_difference.cpu()
-
-        path: Path = self._path / extra / idx
-        path.mkdir(parents=True, exist_ok=True)
-
-        np.savez_compressed(path / 'arrays.npz', predictions, ground_truth, predictions_difference)
-        heatmap(predictions, path / 'predictions.png', idx)
-        heatmap(ground_truth, path / 'ground_truth.png', idx)
-        heatmap(predictions_difference, path / 'difference.png', idx)
-
-    def _save_distributions(self, idx, all_positive_similarities, all_negative_similarities, extra):
-        path: Path = self._path / extra / idx
-        path.mkdir(parents=True, exist_ok=True)
-
-        distribution(all_positive_similarities, path / 'positive_similarities.png', idx)
-        distribution(all_negative_similarities, path / 'negative_similarities.png', idx)
-
-    def get_triplets(self, batched_embeddings, batched_labels, prediction):
-        batched_prediction = prediction
-        all_anchors, all_positives, all_negatives = [], [], []
-        feature_dim = batched_embeddings.shape[1]
-
-        for i, (embeddings, labels, prediction) in enumerate(
-                zip(batched_embeddings, batched_labels, batched_prediction)):
-            difference = (prediction != labels).reshape(-1)
-            labels = labels.reshape(-1)
-            embeddings = embeddings.permute((1, 2, 0)).reshape(-1, feature_dim)
-            anchors = embeddings[difference]
-            normalized_anchors = F.normalize(anchors, p=2)
-            anchors_labels = labels[difference]
-            unique_labels = torch.unique(anchors_labels)
-            positives = torch.zeros(size=anchors.shape, dtype=anchors.dtype, device=Config.DEVICE)
-            negatives = torch.zeros(size=anchors.shape, dtype=anchors.dtype, device=Config.DEVICE)
-
-            all_positive_similarities = []
-            all_negative_similarities = []
-            for label in unique_labels:
-                current_anchors = anchors_labels == label
-                indexer = torch.nonzero(current_anchors).squeeze()
-                current_anchors = normalized_anchors[current_anchors]
-                positive_candidates = F.normalize(embeddings[labels == label], p=2)
-                negative_candidates = F.normalize(embeddings[labels != label], p=2)
-
-                if positive_candidates.numel() == 0 \
-                        or positive_candidates.numel() == 0 \
-                        or negative_candidates.numel() == 0:
-                    continue
-
-                positive_similarities = 1 - torch.cdist(current_anchors, positive_candidates, p=2)
-                negative_similarities = 1 - torch.cdist(current_anchors, negative_candidates, p=2)
-
-                current_positives = embeddings[torch.argmin(positive_similarities, dim=-1)]
-                current_negatives = embeddings[torch.argmax(negative_similarities, dim=-1)]
-
-                positives[indexer] = current_positives
-                negatives[indexer] = current_negatives
-
-                all_positive_similarities.extend(positive_similarities.reshape(-1).detach().cpu().numpy().tolist())
-                all_negative_similarities.extend(negative_similarities.reshape(-1).detach().cpu().numpy().tolist())
-
-            # if extra % 100 == 0 and extra > 0:
-            #     _extra = str(extra)
-            #     idx = str(self._indexer[_extra])
-            #     self._indexer[_extra] += 1
-            #     self._save_predictions(idx, prediction, labels, difference, _extra)
-            #     self._save_distributions(idx, all_positive_similarities, all_negative_similarities, _extra)
-
-            keep = positives.abs().sum(dim=1).bool()
-
-            anchors = anchors[keep]
-            positives = positives[keep]
-            negatives = negatives[keep]
-
-            all_anchors.append(anchors)
-            all_positives.append(positives)
-            all_negatives.append(negatives)
-
-        anchors = torch.cat(all_anchors)
-        positives = torch.cat(all_positives)
-        negatives = torch.cat(all_negatives)
-
-        return anchors, positives, negatives
