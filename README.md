@@ -1,5 +1,7 @@
 # Label propagation for one-shot video object segmentation
 
+This project was created as a part of master's thesis at the [FEE CTU](https://fel.cvut.cz/en/).
+
 The project is implemented using **Python 3.8.5** and with **PyTorch 1.8.1**. Other used libraries can be found in the **requirements.txt** file. The original code accompanying the [Zhang et al.](https://arxiv.org/abs/2004.07193) can be found on Microsoft's GitHub [repository](https://github.com/microsoft/transductive-vos.pytorch).
 
 ## Installation
@@ -31,7 +33,9 @@ python visualization.py <command> --help}.
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 
-Please make sure to update tests as appropriate.
+## Author
+Created by [Hynek Davídek](davidhyn@fel.cvut.cz).
+
 
 ## License
-[MIT](https://choosealicense.com/licenses/mit/)
+[MIT](LICENSE)
