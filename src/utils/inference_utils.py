@@ -5,8 +5,10 @@
 from __future__ import annotations
 from __future__ import generator_stop
 
+import pickle
 from collections import defaultdict
 
+import joblib
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -520,7 +522,6 @@ def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_v
     predictions = defaultdict(lambda: [])
     palettes = []
     for scale in scales:
-        pred_visualize = None
         frame_idx = 0
         for i, (input, (current_video,)) in tqdm(enumerate(inference_loader), total=total_len, disable=disable):
             input = torch.nn.functional.interpolate(input, scale_factor=scale, mode='nearest').to(Config.DEVICE)
@@ -583,7 +584,10 @@ def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_v
 
         pred_visualize = pred_visualize.cpu().numpy()
         predictions[current_video].append(pred_visualize)
+        pred_visualize = None
 
+    joblib.dump(predictions, 'predictions.joblib')
+    joblib.dump(palettes, 'palettes.joblib')
     for (video_name, frames), palette in tqdm(zip(predictions.items(), palettes), desc='Saving', total=len(palettes)):
         prediction = np.maximum(np.maximum(frames[0], frames[1]), frames[2])
         save_predictions(prediction, palette, save, video_name)
