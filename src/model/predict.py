@@ -143,6 +143,14 @@ def prepare_first_frame(curr_video,
     elif inference_strategy == 'multimodel':
         # that's right, do nothing
         pass
+    elif inference_strategy == '3-scale':
+        del weight_dense, weight_sparse
+        H_d = int(np.ceil(H * Config.SCALE * scale))
+        W_d = int(np.ceil(W * Config.SCALE * scale))
+        weight_dense = get_spatial_weight((H_d, W_d), sigma1) if not probability_propagation else None
+        weight_sparse = get_spatial_weight((H_d, W_d), sigma2) if not probability_propagation else None
+        label_1hot = get_labels(label, d, H, W, H_d, W_d)
+        return label_1hot, d, palette, weight_dense, weight_sparse
 
     return label_1hot, d, palette, weight_dense, weight_sparse
 
