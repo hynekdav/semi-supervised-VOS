@@ -40,7 +40,7 @@ def cleanup(path):
 @click.option('-o', '--output', type=click.Path(file_okay=True, dir_okay=False), required=True,
               help='Path to save the output video.')
 @click.option('-f', '--fps', type=click.INT, default=15, required=False,
-              help='Number of frames pers second in the resulting video.')
+              help='Number of frames per second in the resulting video.')
 @click.option('--bw/--color', default=False, help='Should resulting video be black and white?')
 def overlay_command(prediction, source, output, fps, bw):
     remove_background(prediction)

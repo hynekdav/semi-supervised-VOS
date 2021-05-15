@@ -16,38 +16,39 @@ from src.utils.utils import load_model
 
 
 @click.command(name='inference')
-@click.option('--ref_num', '-n', type=int, default=9, help='number of reference frames for inference')
+@click.option('--ref_num', '-n', type=int, default=9, help='Number of reference frames for inference.')
 @click.option('--data', '-d', type=click.Path(file_okay=False, dir_okay=True), required=True,
-              help='path to inference dataset folder')
+              help='Path to inference dataset folder.')
 @click.option('--resume', '-r', type=click.Path(file_okay=True, dir_okay=False), required=True,
-              help='path to the resumed checkpoint')
-@click.option('--model', '-m', type=click.Choice(['resnet18', 'resnet50', 'resnet101']), default='resnet50',
-              help='network architecture, resnet18, resnet50 or resnet101')
-@click.option('--temperature', '-t', type=float, default=1.0, help='temperature parameter')
-@click.option('--frame_range', type=int, default=40, help='range of frames for inference')
+              help='Path to the trained checkpoint.')
+@click.option('--model', '-m', type=click.Choice(['resnet18', 'resnet50', 'resnet101', 'facebook']), default='resnet50',
+              help='Network architecture, resnet18, resnet50, resnet101 or facebook.')
+@click.option('--temperature', '-t', type=float, default=1.0, help='Temperature parameter.')
+@click.option('--frame_range', type=int, default=40, help='Range of frames for inference.')
 @click.option('--sigma_1', type=float, default=8.0,
-              help='smaller sigma in the motion model for dense spatial weight')
+              help='Smaller sigma in the motion model for dense spatial weight')
 @click.option('--sigma_2', type=float, default=21.0,
-              help='smaller sigma in the motion model for dense spatial weight')
+              help='Larger sigma in the motion model for dense spatial weight.')
 @click.option('--save', '-s', type=click.Path(file_okay=False, dir_okay=True), required=True,
-              help='path to save predictions')
+              help='Path to save predictions.')
 @click.option('--device', type=click.Choice(['cpu', 'cuda']), default='cuda', help='Device to run computing on.')
 @click.option('--inference-strategy',
               type=click.Choice(['single', 'hor-flip', 'vert-flip', '2-scale', 'multimodel', 'hor-2-scale']),
               default='single', help='Inference strategy.')
 @click.option('--additional-model', type=click.Path(file_okay=True, dir_okay=False), required=False,
-              help='path to the additional checkpoint')
+              help='Path to the additional checkpoint.')
 @click.option('--additional-model-type', type=click.STRING, required=False, default='resnet50',
-              help='path of the additional model')
-@click.option('--probab/--no-probap', default=False, required=False, help='Should probability or labels be propagated.')
+              help='Type of additional model type.')
+@click.option('--probability/--no-probability', default=False, required=False,
+              help='Should probability or labels be propagated.')
 @click.option('--scale', default=1.15, required=False, type=click.FLOAT,
               help='Scale for 2nd image in 2-scale strategy.')
-@click.option('--reduction', default='mean', type=click.Choice(['maximum', 'minimum', 'mean']),
+@click.option('--fusion', default='mean', type=click.Choice(['maximum', 'minimum', 'mean']),
               help='Fusion operation for probability propagation.')
 def inference_command(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                      inference_strategy, additional_model, additional_model_type, probab, scale, reduction):
+                      inference_strategy, additional_model, additional_model_type, probability, scale, fusion):
     inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
-                           inference_strategy, additional_model, additional_model_type, probab, scale, reduction)
+                           inference_strategy, additional_model, additional_model_type, probability, scale, fusion)
 
 
 def inference_command_impl(ref_num, data, resume, model, temperature, frame_range, sigma_1, sigma_2, save, device,
@@ -69,14 +70,13 @@ def inference_command_impl(ref_num, data, resume, model, temperature, frame_rang
         additional_model = additional_model.to(Config.DEVICE)
         additional_model.eval()
 
-    data_dir = Path(data) / 'JPEGImages/480p'
+    data_dir = str(Path(data) / 'JPEGImages/480p')
     inference_dataset = InferenceDataset(data_dir, disable=disable, inference_strategy=inference_strategy, scale=scale)
     inference_loader = torch.utils.data.DataLoader(inference_dataset,
                                                    batch_size=1,
                                                    shuffle=False,
                                                    num_workers=1)
 
-    # global pred_visualize, palette, d, feats_history_l, feats_history_r, label_history_l, label_history_r, weight_dense, weight_sparse
     annotation_dir = Path(data) / 'Annotations/480p'
     annotation_list = sorted(list(annotation_dir.glob('*')))
     last_video = annotation_list[0].name

@@ -5,8 +5,9 @@
 import click
 
 from src.inference import inference_command
-from src.train import train_command, validation_command
+from src.train import train_command
 from src.evaluation import evaluation_command
+from src.validation import validation_command
 
 
 @click.group(name='cli')

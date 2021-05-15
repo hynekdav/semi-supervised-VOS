@@ -38,9 +38,9 @@ def process_pair(gt, seg):
 
 @click.command(name='evaluation')
 @click.option('--ground_truth', '-g', type=click.Path(file_okay=False, dir_okay=True), required=True,
-              help='path to ground truth dataset folder')
+              help='Path to ground truth dataset folder.')
 @click.option('--computed_results', '-c', type=click.Path(file_okay=False, dir_okay=True), required=True,
-              help='path to inference dataset folder')
+              help='Path to computed results.')
 def evaluation_command(ground_truth, computed_results):
     evaluation_command_impl(ground_truth, computed_results)
 

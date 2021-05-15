@@ -22,7 +22,7 @@ The application is written using [Click](https://click.palletsprojects.com/) lib
 ```bash
 python main.py <command> --help}.
 ```
-Examples of running each command are in file **example.sh**.
+Examples of running each command are in file [example.sh](example.sh).
 
 Additionally, the project offers various visualizations of predicted frames. The visualizations are invoked same way as the main entrypoint and are located in file **visualization.py**:
 ```bash
