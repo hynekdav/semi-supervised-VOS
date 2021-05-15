@@ -522,9 +522,9 @@ def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_v
     for scale in scales:
         pred_visualize = None
         frame_idx = 0
-        for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
+        for i, (input, (current_video,)) in tqdm(enumerate(inference_loader), total=total_len, disable=disable):
             input = torch.nn.functional.interpolate(input, scale_factor=scale, mode='nearest').to(Config.DEVICE)
-            if current_video != last_video:
+            if i != 0 and current_video != last_video:
                 # save prediction
                 pred_visualize = pred_visualize.cpu().numpy()
                 predictions[current_video].append(pred_visualize)
