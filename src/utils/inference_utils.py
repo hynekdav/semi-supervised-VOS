@@ -519,7 +519,7 @@ def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_v
                       frame_range, ref_num, temperature, probability_propagation, scale, disable):
     global pred_visualize, palette, feats_history, label_history, weight_dense, weight_sparse, d, current_video
     scales = [0.85, 1.0, scale]
-    predictions = defaultdict(lambda: [])
+    predictions = {}
     palettes = []
     for scale in scales:
         frame_idx = 0
@@ -528,6 +528,8 @@ def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_v
             if i != 0 and current_video != last_video:
                 # save prediction
                 pred_visualize = pred_visualize.cpu().numpy()
+                if current_video not in predictions:
+                    predictions[current_video] = []
                 predictions[current_video].append(pred_visualize)
                 frame_idx = 0
             if frame_idx == 0:
@@ -583,6 +585,8 @@ def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_v
                 pred_visualize = torch.cat((pred_visualize, prediction), 0)
 
         pred_visualize = pred_visualize.cpu().numpy()
+        if current_video not in predictions:
+            predictions[current_video] = []
         predictions[current_video].append(pred_visualize)
         pred_visualize = None
 
