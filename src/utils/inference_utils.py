@@ -520,6 +520,7 @@ def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_v
     predictions = defaultdict(lambda: [])
     palettes = []
     for scale in scales:
+        pred_visualize = None
         frame_idx = 0
         for input, (current_video,) in tqdm(inference_loader, total=total_len, disable=disable):
             input = torch.nn.functional.interpolate(input, scale_factor=scale, mode='nearest').to(Config.DEVICE)
