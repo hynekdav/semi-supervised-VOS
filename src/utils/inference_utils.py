@@ -585,7 +585,7 @@ def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_v
                 pred_visualize = torch.cat((pred_visualize, prediction), 0)
 
         pred_visualize = pred_visualize.cpu().numpy()
-        if current_video not in predictions:
+        if 'india' not in predictions:
             predictions['india'] = []
         predictions['india'].append(pred_visualize)
         pred_visualize = None
