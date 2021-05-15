@@ -586,10 +586,11 @@ def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_v
 
         pred_visualize = pred_visualize.cpu().numpy()
         if current_video not in predictions:
-            predictions[last_video] = []
-        predictions[last_video].append(pred_visualize)
+            predictions['india'] = []
+        predictions['india'].append(pred_visualize)
         pred_visualize = None
 
+    print(predictions)
     for (video_name, frames), palette in tqdm(zip(predictions.items(), palettes), desc='Saving', total=len(palettes)):
         prediction = np.maximum(np.maximum(frames[0], frames[1]), frames[2])
         save_predictions(prediction, palette, save, video_name)
