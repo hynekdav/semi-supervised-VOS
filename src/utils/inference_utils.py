@@ -544,6 +544,7 @@ def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_v
                     scale=scale)
                 frame_idx += 1
                 last_video = current_video
+                palettes.append(palette)
                 continue
 
             with torch.cuda.amp.autocast():
