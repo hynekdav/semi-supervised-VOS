@@ -574,7 +574,7 @@ def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_v
 
             prediction = torch.nn.functional.interpolate(prediction.view(1, d, H_d, W_d), size=(480, 910),
                                                          mode='nearest')
-            prediction = torch.argmax(prediction, 1).cpu()  # (1, H, W)
+            prediction = torch.argmax(prediction, 1).cpu().type(torch.int8)  # (1, H, W)
 
             last_video = current_video
             frame_idx += 1
