@@ -5,19 +5,15 @@
 from __future__ import annotations
 from __future__ import generator_stop
 
-import pickle
-from collections import defaultdict
-
-import joblib
 import numpy as np
 import torch
 import torch.nn.functional as F
+from tqdm import tqdm
 
 from src.config import Config
 from src.model.predict import prepare_first_frame, predict
 from src.utils.transforms import hflip
 from src.utils.utils import save_predictions, index_to_onehot
-from tqdm import tqdm
 
 REDUCTIONS = {'maximum': lambda x, y: torch.maximum(x, y),
               'minimum': lambda x, y: torch.minimum(x, y),
