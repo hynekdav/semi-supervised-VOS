@@ -518,7 +518,7 @@ def inference_multimodel(model, additional_model, inference_loader, total_len, a
 def inference_3_scale(model, inference_loader, total_len, annotation_dir, last_video, save, sigma_1, sigma_2,
                       frame_range, ref_num, temperature, probability_propagation, scale, disable):
     global pred_visualize, palette, feats_history, label_history, weight_dense, weight_sparse, d, current_video
-    scales = [1.0, 1.2]
+    scales = [0.9, 1.0, scale]
     predictions = {}
     palettes = []
     for scale in scales:
